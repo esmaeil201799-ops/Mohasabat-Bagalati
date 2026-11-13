@@ -1,0 +1,31 @@
+محاسبة بقالتي 1.5.6 — حالة التسليم الهندسي
+
+نوع الحزمة: مشروع Android المصدر، وليس APK.
+
+الموجود:
+- واجهة التطبيق داخل app/src/main/assets/index.html
+- تطبيق Android Java وملف AndroidManifest
+- إعدادات Gradle واعتماد AndroidX WebKit
+- GitHub Actions workflow لبناء Debug APK
+- دليل تسليم هندسي عربي وتعليمات بناء واختبار
+
+إعداد البناء:
+- JDK 17
+- Gradle 8.9
+- Android SDK Platform 35 / Build Tools 35.0.0
+- applicationId: com.esmaeil.groceryapp
+- versionName: 1.5.6 / versionCode: 156
+
+الفحوصات الساكنة السابقة: ZIP سليم، check-project.py ناجح، Manifest XML صالح، كتل JavaScript ناجحة في node --check، ولا توجد معرفات HTML مكررة.
+
+غير المنفذ/غير المثبت:
+- لا يوجد APK ضمن هذه الحزمة.
+- لم يُنفذ تجميع Gradle فعليًا.
+- لم يُختبر التطبيق على هاتف حقيقي.
+- لم يُختبر فعليًا حفظ البيانات بعد إعادة التشغيل أو وضع الطيران أو الكاميرا أو الاستيراد والاستعادة.
+- لا يوجد مفتاح توقيع Release.
+
+مسار البناء: .github/workflows/build-apk.yml
+المخرج المتوقع: app/build/outputs/apk/debug/app-debug.apk
+
+ملاحظة: هذه الحزمة جاهزة لتسليمها إلى مهندس Android لفتح المشروع وبنائه، لكنها لا تمثل شهادة اجتياز اختبارات تشغيلية.
