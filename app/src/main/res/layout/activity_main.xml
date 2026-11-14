@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F4F6F8"
+    android:layoutDirection="rtl">
+
+    <!-- رأس التطبيق والعنوان -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#1B5E20"
+        android:padding="16dp"
+        android:gravity="center">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="محاسبة بقالتي 2.0"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="النظام المالي والمخزني التجاري المتكامل (بدون إنترنت)"
+            android:textSize="12sp"
+            android:textColor="#C8E6C9"
+            android:layout_marginTop="4dp" />
+    </LinearLayout>
+
+    <!-- محتوى الشاشة (قابل للتمرير) -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- لوحة المؤشرات المالية السريعة -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="12dp"
+                        android:gravity="center">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="مبيعات اليوم" android:textSize="12sp" android:textColor="#555"/>
+                        <TextView android:id="@+id/tvTotalSalesVal" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="25,000 ر.ي" android:textSize="16sp" android:textStyle="bold" android:textColor="#2E7D32" android:layout_marginTop="4dp"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="12dp"
+                        android:gravity="center">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="الصندوق (نقداً)" android:textSize="12sp" android:textColor="#555"/>
+                        <TextView android:id="@+id/tvCashVal" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="15,000 ر.ي" android:textSize="16sp" android:textStyle="bold" android:textColor="#1976D2" android:layout_marginTop="4dp"/>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+            </LinearLayout>
+
+            <!-- قسم تسجيل عملية بيع جديدة -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="تسجيل عملية بيع جديدة"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#1B5E20"
+                android:layout_marginBottom="8dp" />
+
+            <Spinner
+                android:id="@+id/spinnerItems"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:background="@android:drawable/editbox_background_normal"
+                android:layout_marginBottom="12dp" />
+
+            <EditText
+                android:id="@+id/etQuantity"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:hint="الكمية المباعة (افتراضي: 1)"
+                android:inputType="number"
+                android:textSize="16sp"
+                android:background="@android:drawable/editbox_background_normal"
+                android:padding="10dp"
+                android:layout_marginBottom="12dp" />
+
+            <Spinner
+                android:id="@+id/spinnerPaymentType"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:background="@android:drawable/editbox_background_normal"
+                android:layout_marginBottom="16dp" />
+
+            <Button
+                android:id="@+id/btnCheckout"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:text="إتمام وتنفيذ البيع وتحديث المؤشرات"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#2E7D32"
+                android:layout_marginBottom="16dp" />
+
+            <!-- قسم التقارير والطباعة والمشاركة -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="24dp">
+
+                <Button
+                    android:id="@+id/btnShareReport"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:text="مشاركة تقرير اليوم"
+                    android:textSize="14sp"
+                    android:backgroundTint="#1976D2"
+                    android:layout_marginEnd="6dp" />
+
+                <Button
+                    android:id="@+id/btnPrintReport"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:text="طباعة كشف الحساب"
+                    android:textSize="14sp"
+                    android:backgroundTint="#424242"
+                    android:layout_marginStart="6dp" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>
