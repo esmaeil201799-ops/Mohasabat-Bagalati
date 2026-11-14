@@ -25,8 +25,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Grant Gradle Permission
-        run: chmod +x gradlew
+      - name: Ensure Gradle Wrapper Exists
+        run: |
+          if [ ! -f "gradlew" ]; then
+            echo "Generating Gradle wrapper..."
+            gradle wrapper --gradle-version 8.9
+          fi
+          chmod +x gradlew || true
 
       - name: Build Debug APK with Accounting & Inventory Core
         run: ./gradlew assembleDebug --no-daemon
