@@ -22,19 +22,16 @@ public class LoginActivity extends AppCompatActivity {
         setContentView(R.layout.activity_login);
 
         try {
-            // ربط العناصر مع الـ XML بدقة
             etPinCode = findViewById(R.id.etPinCode);
             btnLogin = findViewById(R.id.btnLogin);
             btnResetPin = findViewById(R.id.btnResetPin);
 
             prefs = getSharedPreferences("GroceryPrefs", MODE_PRIVATE);
 
-            // تعيين الرمز الافتراضي 1234 إذا لم يكن مخزناً من قبل
             if (!prefs.contains("app_pin")) {
                 prefs.edit().putString("app_pin", "1234").apply();
             }
 
-            // تفعيل زر الدخول والانتقال للشاشة الرئيسية
             if (btnLogin != null) {
                 btnLogin.setOnClickListener(v -> {
                     try {
@@ -44,10 +41,10 @@ public class LoginActivity extends AppCompatActivity {
                         if (enteredPin.equals(savedPin)) {
                             Toast.makeText(this, "تم تسجيل الدخول بنجاح", Toast.LENGTH_SHORT).show();
                             
-                            // أمر الانتقال الفعلي إلى الشاشة الرئيسية MainActivity
+                            // تم تفعيل الانتقال للشاشة الرئيسية بنجاح
                             Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                             startActivity(intent);
-                            finish(); // إنهاء صفحة الدخول لكي لا يعود إليها المستخدم عند الضغط على زر رجوع
+                            finish();
                             
                         } else {
                             Toast.makeText(this, "الرمز السري غير صحيح (الافتراضي: 1234)", Toast.LENGTH_SHORT).show();
@@ -58,7 +55,6 @@ public class LoginActivity extends AppCompatActivity {
                 });
             }
 
-            // تفعيل زر إعادة تعيين الرمز الافتراضي
             if (btnResetPin != null) {
                 btnResetPin.setOnClickListener(v -> {
                     try {
