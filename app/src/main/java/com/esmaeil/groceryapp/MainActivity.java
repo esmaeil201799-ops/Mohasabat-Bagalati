@@ -1,51 +1,91 @@
 package com.esmaeil.groceryapp;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
-import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
-import android.widget.Button;
-import android.widget.Toast;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import com.google.android.material.textfield.TextInputEditText;
 
-public class LoginActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity {
 
-    private TextInputEditText etPinCode;
-    private Button btnLogin, btnResetPin;
-    private SharedPreferences prefs;
+    private WebView webView;
+    private ValueCallback<Uri[]> uploadMessage;
+    private final static int FILE_CHOOSER_RESULT_CODE = 1;
 
+    @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login);
+        
+        webView = new WebView(this);
+        setContentView(webView);
 
-        etPinCode = findViewById(R.id.etPinCode);
-        btnLogin = findViewById(R.id.btnLogin);
-        btnResetPin = findViewById(R.id.btnResetPin);
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        webSettings.setDomStorageEnabled(true);
+        webSettings.setDatabaseEnabled(true);
+        webSettings.setAllowFileAccess(true);
+        webSettings.setAllowContentAccess(true);
 
-        prefs = getSharedPreferences("GroceryPrefs", MODE_PRIVATE);
-
-        if (!prefs.contains("app_pin")) {
-            prefs.edit().putString("app_pin", "1234").apply();
-        }
-
-        btnLogin.setOnClickListener(v -> {
-            String enteredPin = etPinCode.getText() != null ? etPinCode.getText().toString().trim() : "";
-            String savedPin = prefs.getString("app_pin", "1234");
-
-            if (enteredPin.equals(savedPin)) {
-                Toast.makeText(this, "تم تسجيل الدخول بنجاح", Toast.LENGTH_SHORT).show();
-                Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                startActivity(intent);
-                finish();
-            } else {
-                Toast.makeText(this, "الرمز السري غير صحيح!", Toast.LENGTH_SHORT).show();
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                view.loadUrl(url);
+                return true;
             }
         });
 
-        btnResetPin.setOnClickListener(v -> {
-            prefs.edit().putString("app_pin", "1234").apply();
-            Toast.makeText(this, "تمت إعادة تعيين الرمز إلى الإفتراضي (1234)", Toast.LENGTH_LONG).show();
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
+                if (uploadMessage != null) {
+                    uploadMessage.onReceiveValue(null);
+                    uploadMessage = null;
+                }
+                uploadMessage = filePathCallback;
+                Intent intent = fileChooserParams.createIntent();
+                try {
+                    startActivityForResult(intent, FILE_CHOOSER_RESULT_CODE);
+                } catch (Exception e) {
+                    uploadMessage = null;
+                    return false;
+                }
+                return true;
+            }
         });
+
+        webView.loadUrl("file:///android_asset/index.html");
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == FILE_CHOOSER_RESULT_CODE) {
+            if (uploadMessage == null) return;
+            Uri[] results = null;
+            if (resultCode == RESULT_OK && data != null) {
+                String dataString = data.getDataString();
+                if (dataString != null) {
+                    results = new Uri[]{Uri.parse(dataString)};
+                }
+            }
+            uploadMessage.onReceiveValue(results);
+            uploadMessage = null;
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (webView.canGoBack()) {
+            webView.goBack();
+        } else {
+            super.onBackPressed();
+        }
     }
 }
