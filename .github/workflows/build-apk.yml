@@ -1,4 +1,4 @@
-name: Mohasabat Bagalati - Build APK
+name: Mohasabat Bagalati - Complete Build & Verify
 
 on:
   push:
@@ -26,22 +26,16 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept Android SDK Licenses
-        run: yes | sdkmanager --licenses || true
-
       - name: Grant Gradle Permission
         run: chmod +x gradlew
 
-      - name: Build Debug APK
+      - name: Build Debug APK with Accounting & Inventory Core
         run: ./gradlew assembleDebug --no-daemon
 
-      - name: Verify APK
+      - name: Verify APK Exists
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
-          echo "APK generated successfully"
+          echo "APK generated successfully."
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
