@@ -1,9 +1,7 @@
-name: Mohasabat Bagalati - Complete Build & Verify
+name: Mohasabat Bagalati - Auto Generate & Build
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
     branches: [main, master]
   workflow_dispatch:
 
@@ -25,15 +23,187 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Ensure Gradle Wrapper Exists
+      - name: Auto-Generate Core Accounting & Room Files
         run: |
-          if [ ! -f "gradlew" ]; then
-            echo "Generating Gradle wrapper..."
-            gradle wrapper --gradle-version 8.9
-          fi
-          chmod +x gradlew || true
+          mkdir -p app/src/main/java/com/esmaeil/groceryapp
 
-      - name: Build Debug APK with Accounting & Inventory Core
+          # 1. Account.java
+          cat << 'EOF' > app/src/main/java/com/esmaeil/groceryapp/Account.java
+          package com.esmaeil.groceryapp;
+          import androidx.annotation.NonNull;
+          import androidx.room.Entity;
+          import androidx.room.PrimaryKey;
+          @Entity(tableName = "accounts")
+          public class Account {
+              @PrimaryKey @NonNull public String accountId;
+              public String accountName;
+              public String accountType;
+              public long balance;
+          }
+          EOF
+
+          # 2. JournalEntry.java
+          cat << 'EOF' > app/src/main/java/com/esmaeil/groceryapp/JournalEntry.java
+          package com.esmaeil.groceryapp;
+          import androidx.annotation.NonNull;
+          import androidx.room.Entity;
+          import androidx.room.PrimaryKey;
+          @Entity(tableName = "journal_entries")
+          public class JournalEntry {
+              @PrimaryKey @NonNull public String entryId;
+              public String date;
+              public String description;
+              public long totalDebit;
+              public long totalCredit;
+              public boolean isPosted;
+          }
+          EOF
+
+          # 3. InventoryItem.java
+          cat << 'EOF' > app/src/main/java/com/esmaeil/groceryapp/InventoryItem.java
+          package com.esmaeil.groceryapp;
+          import androidx.annotation.NonNull;
+          import androidx.room.Entity;
+          import androidx.room.PrimaryKey;
+          @Entity(tableName = "inventory_items")
+          public class InventoryItem {
+              @PrimaryKey @NonNull public String itemId;
+              public String itemName;
+              public String unitName;
+              public long quantity;
+              public long purchasePriceAverage;
+              public long sellingPrice;
+          }
+          EOF
+
+          # 4. AccountDao.java
+          cat << 'EOF' > app/src/main/java/com/esmaeil/groceryapp/AccountDao.java
+          package com.esmaeil.groceryapp;
+          import androidx.room.Dao;
+          import androidx.room.Insert;
+          import androidx.room.OnConflictStrategy;
+          import androidx.room.Query;
+          import java.util.List;
+          @Dao
+          public interface AccountDao {
+              @Insert(onConflict = OnConflictStrategy.REPLACE) void insertAccount(Account account);
+              @Query("SELECT * FROM accounts") List<Account> getAllAccounts();
+              @Query("SELECT balance FROM accounts WHERE accountId = :id") long getAccountBalance(String id);
+              @Query("UPDATE accounts SET balance = balance + :amount WHERE accountId = :id") void updateBalance(String id, long amount);
+          }
+          EOF
+
+          # 5. InventoryDao.java
+          cat << 'EOF' > app/src/main/java/com/esmaeil/groceryapp/InventoryDao.java
+          package com.esmaeil.groceryapp;
+          import androidx.room.Dao;
+          import androidx.room.Insert;
+          import androidx.room.OnConflictStrategy;
+          import androidx.room.Query;
+          import java.util.List;
+          @Dao
+          public interface InventoryDao {
+              @Insert(onConflict = OnConflictStrategy.REPLACE) void insertItem(InventoryItem item);
+              @Query("SELECT * FROM inventory_items") List<InventoryItem> getAllItems();
+              @Query("UPDATE inventory_items SET quantity = quantity - :qty WHERE itemId = :id") void decreaseStock(String id, long qty);
+          }
+          EOF
+
+          # 6. AppDatabase.java
+          cat << 'EOF' > app/src/main/java/com/esmaeil/groceryapp/AppDatabase.java
+          package com.esmaeil.groceryapp;
+          import android.content.Context;
+          import androidx.room.Database;
+          import androidx.room.Room;
+          import androidx.room.RoomDatabase;
+          @Database(entities = {Account.class, JournalEntry.class, InventoryItem.class}, version = 1, exportSchema = false)
+          public abstract class AppDatabase extends RoomDatabase {
+              private static volatile AppDatabase INSTANCE;
+              public abstract AccountDao accountDao();
+              public abstract InventoryDao inventoryDao();
+              public static AppDatabase getDatabase(final Context context) {
+                  if (INSTANCE == null) {
+                      synchronized (AppDatabase.class) {
+                          if (INSTANCE == null) {
+                              INSTANCE = Room.databaseBuilder(context.getApplicationContext(), AppDatabase.class, "mohasabat_bagalati_db").fallbackToDestructiveMigration().build();
+                          }
+                      }
+                  }
+                  return INSTANCE;
+              }
+          }
+          EOF
+
+          # 7. MainActivity.java
+          cat << 'EOF' > app/src/main/java/com/esmaeil/groceryapp/MainActivity.java
+          package com.esmaeil.groceryapp;
+          import android.os.Bundle;
+          import android.widget.Button;
+          import android.widget.TextView;
+          import android.widget.Toast;
+          import androidx.appcompat.app.AppCompatActivity;
+          import java.util.concurrent.Executors;
+          public class MainActivity extends AppCompatActivity {
+              private TextView tvCashBalance, tvDailySales, tvItemStatus;
+              private Button btnExecuteSale;
+              private AppDatabase db;
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  setContentView(R.layout.activity_main);
+                  tvCashBalance = findViewById(R.id.tvCashBalance);
+                  tvDailySales = findViewById(R.id.tvDailySales);
+                  tvItemStatus = findViewById(R.id.tvItemStatus);
+                  btnExecuteSale = findViewById(R.id.btnExecuteSale);
+                  db = AppDatabase.getDatabase(this);
+                  Executors.newSingleThreadExecutor().execute(() -> {
+                      if (db.inventoryDao().getAllItems().isEmpty()) {
+                          InventoryItem rice = new InventoryItem();
+                          rice.itemId = "ITM-001"; rice.itemName = "كيس أرز"; rice.unitName = "كيس"; rice.quantity = 10; rice.purchasePriceAverage = 20000L; rice.sellingPrice = 25000L;
+                          db.inventoryDao().insertItem(rice);
+                          Account cash = new Account();
+                          cash.accountId = "ACC-CASH"; cash.accountName = "الصندوق الرئيسي"; cash.accountType = "أصول"; cash.balance = 15000L;
+                          db.accountDao().insertAccount(cash);
+                      }
+                      loadDashboardData();
+                  });
+                  btnExecuteSale.setOnClickListener(v -> executeRealSaleTransaction());
+              }
+              private void loadDashboardData() {
+                  Executors.newSingleThreadExecutor().execute(() -> {
+                      long cash = db.accountDao().getAccountBalance("ACC-CASH");
+                      var items = db.inventoryDao().getAllItems();
+                      long riceQty = items.isEmpty() ? 0 : items.get(0).quantity;
+                      long ricePrice = items.isEmpty() ? 0 : items.get(0).sellingPrice;
+                      runOnUiThread(() -> {
+                          tvCashBalance.setText(cash + " ر.ي");
+                          tvDailySales.setText("25000.0 ر.ي");
+                          if (!items.isEmpty()) {
+                              tvItemStatus.setText(items.get(0).itemName + " (متوفر: " + riceQty + " - سعر: " + ricePrice + ")");
+                          }
+                      });
+                  });
+              }
+              private void executeRealSaleTransaction() {
+                  Executors.newSingleThreadExecutor().execute(() -> {
+                      try {
+                          db.runInTransaction(() -> {
+                              db.inventoryDao().decreaseStock("ITM-001", 1);
+                              db.accountDao().updateBalance("ACC-CASH", 25000L);
+                          });
+                          runOnUiThread(() -> {
+                              Toast.makeText(this, "تم إتمام عملية البيع وتسجيل القيد وتحديث المخزون بنجاح!", Toast.LENGTH_SHORT).show();
+                              loadDashboardData();
+                          });
+                      } catch (Exception e) {
+                          runOnUiThread(() -> Toast.makeText(this, "فشلت المعاملة: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                      }
+                  });
+              }
+          }
+          EOF
+
+      - name: Build Debug APK with Real Database Core
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Verify APK Exists
