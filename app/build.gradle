@@ -10,8 +10,8 @@ android {
         applicationId 'com.esmaeil.groceryapp'
         minSdk 23
         targetSdk 35
-        versionCode 156
-        versionName '1.5.6'
+        versionCode 200
+        versionName '2.0.0'
     }
 
     compileOptions {
@@ -23,26 +23,20 @@ android {
         debug {
             debuggable true
         }
-
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile(
-                'proguard-android-optimize.txt'
-            ), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
 
-// استبعاد مكتبات Kotlin القديمة التي تسبب تكرار الأصناف
 configurations.configureEach {
-    exclude group: 'org.jetbrains.kotlin',
-            module: 'kotlin-stdlib-jdk7'
-
-    exclude group: 'org.jetbrains.kotlin',
-            module: 'kotlin-stdlib-jdk8'
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
 }
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.webkit:webkit:1.12.1'
+    implementation 'com.google.android.material:material:1.12.0'
 }
