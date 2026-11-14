@@ -25,22 +25,18 @@
         android:textColor="#555555"
         android:layout_marginBottom="32dp" />
 
-    <com.google.android.material.textfield.TextInputLayout
+    <EditText
+        android:id="@+id/etPinCode"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="55dp"
+        android:hint="أدخل الرمز السري (افتراضي: 1234)"
+        android:inputType="numberPassword"
+        android:maxLength="6"
+        android:textSize="18sp"
+        android:gravity="center"
+        android:background="@android:drawable/editbox_background_normal"
         android:layout_marginBottom="20dp"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etPinCode"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="أدخل الرمز السري (افتراضي: 1234)"
-            android:inputType="numberPassword"
-            android:maxLength="6"
-            android:textSize="18sp"
-            android:gravity="center" />
-    </com.google.android.material.textfield.TextInputLayout>
+        android:padding="12dp" />
 
     <Button
         android:id="@+id/btnLogin"
