@@ -4,9 +4,8 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:background="#F4F6F8"
     android:padding="24dp"
-    android:layoutDirection="rtl">
+    android:background="#F5F5F5">
 
     <TextView
         android:layout_width="wrap_content"
@@ -14,49 +13,62 @@
         android:text="محاسبة بقالتي 2.0"
         android:textSize="24sp"
         android:textStyle="bold"
-        android:textColor="#1B5E20"
-        android:layout_marginBottom="8dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="النظام التجاري المدمج لإدارة البقالات"
-        android:textSize="14sp"
-        android:textColor="#555555"
-        android:layout_marginBottom="32dp" />
+        android:textColor="#2E7D32"
+        android:layout_marginBottom="32dp"/>
 
     <EditText
-        android:id="@+id/etPinCode"
+        android:id="@+id/etUsername"
         android:layout_width="match_parent"
-        android:layout_height="55dp"
-        android:hint="أدخل الرمز السري (افتراضي: 1234)"
-        android:inputType="numberPassword"
-        android:maxLength="6"
-        android:textSize="18sp"
-        android:gravity="center"
-        android:background="@android:drawable/editbox_background_normal"
-        android:layout_marginBottom="20dp"
-        android:padding="12dp" />
+        android:layout_height="wrap_content"
+        android:hint="اسم المستخدم"
+        android:inputType="text"
+        android:padding="12dp"
+        android:layout_marginBottom="16dp"
+        android:background="@android:drawable.edit_text"/>
+
+    <EditText
+        android:id="@+id/etPassword"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="كلمة المرور"
+        android:inputType="textPassword"
+        android:padding="12dp"
+        android:layout_marginBottom="24dp"
+        android:background="@android:drawable.edit_text"/>
 
     <Button
         android:id="@+id/btnLogin"
         android:layout_width="match_parent"
-        android:layout_height="55dp"
-        android:text="دخول للنظام"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF"
+        android:layout_height="wrap_content"
+        android:text="تسجيل الدخول"
         android:backgroundTint="#2E7D32"
-        android:layout_marginBottom="12dp" />
+        android:textColor="#FFFFFF"
+        android:padding="12dp"
+        android:layout_marginBottom="16dp"/>
 
-    <Button
-        android:id="@+id/btnResetPin"
-        android:layout_width="match_parent"
-        android:layout_height="55dp"
-        android:text="إعادة تعيين الرمز الإفتراضي"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:textColor="#2E7D32"
-        android:backgroundTint="#C8E6C9" />
+    <!-- زر إعادة تعيين كلمة المرور بحجم ومظهر مرتب ومضبوط -->
+    <TextView
+        android:id="@+id/tvForgotPassword"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="نسيت كلمة المرور؟"
+        android:textColor="#757575"
+        android:textSize="14sp"
+        android:padding="8dp"
+        android:layout_marginBottom="12dp"
+        android:clickable="true"
+        android:focusable="true"/>
+
+    <!-- زر إعدادات التطبيق الداخلية -->
+    <TextView
+        android:id="@+id/tvAppSettings"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="إعدادات النظام الداخلية"
+        android:textColor="#1976D2"
+        android:textSize="14sp"
+        android:padding="8dp"
+        android:clickable="true"
+        android:focusable="true"/>
 
 </LinearLayout>
