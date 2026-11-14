@@ -3,14 +3,478 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>محاسبة بقالتي</title>
+    <title>محاسبة بقالتي 2.0 - النظام التجاري المتكامل</title>
     <style>
-        body { font-family: Tahoma, sans-serif; background: #f4f4f4; text-align: center; padding: 50px; }
-        h1 { color: #2c3e50; }
+        :root {
+            --primary: #2E7D32;
+            --primary-dark: #1B5E20;
+            --accent: #4CAF50;
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+            --danger: #c0392b;
+            --warning: #d35400;
+            --success: #27ae60;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 15px; }
+        header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        header h1 { font-size: 20px; margin-bottom: 5px; }
+        header p { font-size: 12px; opacity: 0.9; }
+
+        .nav-tabs { display: flex; overflow-x: auto; gap: 8px; margin-bottom: 20px; padding-bottom: 5px; }
+        .tab-btn { background: #e0e0e0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap; color: #333; transition: 0.3s; }
+        .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+
+        .section { display: none; background: var(--card-bg); padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .section.active { display: block; }
+
+        h2 { font-size: 16px; color: var(--primary-dark); margin-bottom: 12px; border-bottom: 2px solid #eee; padding-bottom: 6px; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
+        .stat-card { background: #e8f5e9; padding: 12px; border-radius: 8px; border-right: 4px solid var(--primary); }
+        .stat-card h3 { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+        .stat-card .val { font-size: 18px; font-weight: bold; color: var(--primary-dark); }
+
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 12px; margin-bottom: 5px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; background: #fff; }
+        button.action-btn { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 5px; }
+        button.action-btn:active { background: var(--primary-dark); }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { border: 1px solid #e0e0e0; padding: 8px; text-align: center; }
+        th { background: #f1f8f6; color: var(--primary-dark); }
+
+        .btn-danger { background: var(--danger) !important; }
+        .btn-warning { background: var(--warning) !important; }
+        .row { display: flex; gap: 10px; }
+        .row > * { flex: 1; }
     </style>
 </head>
 <body>
-    <h1>تطبيق محاسبة بقالتي يعمل بنجاح!</h1>
-    <p>جاهز لإدارة حسابات البقالة بكل سلاسة.</p>
+
+    <header>
+        <h1>محاسبة بقالتي 2.0</h1>
+        <p>النظام المالي والمخزني التجاري المتكامل (بدون إنترنت)</p>
+    </header>
+
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('dashboard')">الرئيسية</button>
+        <button class="tab-btn" onclick="switchTab('sales')">المبيعات</button>
+        <button class="tab-btn" onclick="switchTab('inventory')">المخزون</button>
+        <button class="tab-btn" onclick="switchTab('debts')">الديون والعملاء</button>
+        <button class="tab-btn" onclick="switchTab('expenses')">المصروفات</button>
+        <button class="tab-btn" onclick="switchTab('reports')">التقارير والأرباح</button>
+        <button class="tab-btn" onclick="switchTab('audit')">سجل التدقيق</button>
+        <button class="tab-btn" onclick="switchTab('settings')">النسخ الاحتياطي</button>
+    </div>
+
+    <!-- 1. الرئيسية -->
+    <div id="dashboard" class="section active">
+        <h2>لوحة المؤشرات المالية</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>إجمالي مبيعات اليوم</h3>
+                <div class="val" id="lblTodaySales">0 ر.ي</div>
+            </div>
+            <div class="stat-card">
+                <h3>صافي أرباح اليوم</h3>
+                <div class="val" id="lblTodayProfit">0 ر.ي</div>
+            </div>
+            <div class="stat-card">
+                <h3>إجمالي الديون للعملاء</h3>
+                <div class="val" id="lblTotalDebts">0 ر.ي</div>
+            </div>
+            <div class="stat-card">
+                <h3>إجمالي المصروفات</h3>
+                <div class="val" id="lblTotalExpenses">0 ر.ي</div>
+            </div>
+        </div>
+        <button class="action-btn" onclick="refreshDashboard()">تحديث المؤشرات</button>
+    </div>
+
+    <!-- 2. المبيعات -->
+    <div id="sales" class="section">
+        <h2>تسجيل عملية بيع جديدة</h2>
+        <div class="form-group">
+            <label>اختر الصنف</label>
+            <select id="saleItemSelect"></select>
+        </div>
+        <div class="form-group">
+            <label>الكمية المباعة</label>
+            <input type="number" id="saleQty" value="1" min="1">
+        </div>
+        <div class="form-group">
+            <label>طريقة الدفع</label>
+            <select id="saleType">
+                <option value="cash">نقداً (كاش)</option>
+                <option value="debt">آجل (تسجيل على الدفتر)</option>
+            </select>
+        </div>
+        <div class="form-group" id="debtorGroup" style="display:none;">
+            <label>اسم العميل / المدين</label>
+            <input type="text" id="saleDebtorName" placeholder="اسم الزبون">
+        </div>
+        <button class="action-btn" onclick="recordSale()">إتمام وتنفيذ البيع</button>
+        
+        <h2 style="margin-top: 20px;">سجل مبيعات اليوم</h2>
+        <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>الصنف</th><th>الكمية</th><th>الإجمالي</th><th>النوع</th><th>الوقت</th></tr>
+                </thead>
+                <tbody id="salesTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 3. المخزون -->
+    <div id="inventory" class="section">
+        <h2>إدارة المخزون والأصناف</h2>
+        <div class="form-group">
+            <label>اسم الصنف</label>
+            <input type="text" id="invName" placeholder="مثال: أرز، سكر، زيت...">
+        </div>
+        <div class="row">
+            <div class="form-group">
+                <label>سعر الشراء (للوحدة)</label>
+                <input type="number" id="invBuyPrice" placeholder="0">
+            </div>
+            <div class="form-group">
+                <label>سعر البيع (للوحدة)</label>
+                <input type="number" id="invSellPrice" placeholder="0">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>الكمية المتوفرة</label>
+            <input type="number" id="invQty" placeholder="0">
+        </div>
+        <button class="action-btn" onclick="addInventoryItem()">إضافة الصنف للمخزون</button>
+
+        <h2 style="margin-top: 20px;">قائمة أصناف البقالة</h2>
+        <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>الصنف</th><th>شراء</th><th>بيع</th><th>الكمية</th><th>إدارة</th></tr>
+                </thead>
+                <tbody id="inventoryTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 4. الديون والعملاء -->
+    <div id="debts" class="section">
+        <h2>دفتر الديون والعملاء (الآجل)</h2>
+        <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>العميل</th><th>المبلغ المستحق</th><th>إجراء</th></tr>
+                </thead>
+                <tbody id="debtsTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 5. المصروفات -->
+    <div id="expenses" class="section">
+        <h2>تسجيل المصروفات اليومية</h2>
+        <div class="form-group">
+            <label>بيان المصروف</label>
+            <input type="text" id="expDesc" placeholder="مثال: كهرباء، نقل، إيجار...">
+        </div>
+        <div class="form-group">
+            <label>المبلغ</label>
+            <input type="number" id="expAmount" placeholder="0">
+        </div>
+        <button class="action-btn btn-warning" onclick="recordExpense()">حفظ المصروف</button>
+
+        <h2 style="margin-top: 20px;">سجل المصروفات</h2>
+        <table>
+            <thead><tr><th>البيان</th><th>المبلغ</th><th>التاريخ</th></tr></thead>
+            <tbody id="expensesTableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- 6. التقارير والأرباح -->
+    <div id="reports" class="section">
+        <h2>التقارير المالية الشاملة</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>إجمالي رأس مال المخزون</h3>
+                <div class="val" id="lblStockValue">0 ر.ي</div>
+            </div>
+            <div class="stat-card">
+                <h3>إجمالي الأرباح التراكمية</h3>
+                <div class="val" id="lblTotalProfit">0 ر.ي</div>
+            </div>
+        </div>
+        <button class="action-btn" onclick="generateReports()">تحديث التقارير الآن</button>
+    </div>
+
+    <!-- 7. سجل التدقيق -->
+    <div id="audit" class="section">
+        <h2>سجل التدقيق المحاسبي (Audit Trail)</h2>
+        <p style="font-size: 12px; color: #666; margin-bottom: 10px;">توثيق آمن لكل حركة مالية أو تعديل أو عملية بيع لضمان الشفافية ومراقبة الصندوق.</p>
+        <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr><th>الحدث</th><th>التفاصيل</th><th>المبلغ</th><th>الوقت</th></tr>
+                </thead>
+                <tbody id="auditTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 8. إعدادات النسخ الاحتياطي -->
+    <div id="settings" class="section">
+        <h2>النسخ الاحتياطي واستعادة البيانات</h2>
+        <p style="font-size: 12px; margin-bottom: 15px; color: #555;">احفظ نسخة احتياطية من جميع حساباتك وديونك ومخزونك في ملف آمن على جهازك، أو قم باستعادتها في أي وقت.</p>
+        <button class="action-btn" onclick="exportBackup()">تصدير نسخة احتياطية (JSON)</button>
+        <div style="margin-top: 15px;">
+            <label>استعادة من ملف احتياطي</label>
+            <input type="file" id="importFile" accept=".json" onchange="importBackup(event)" style="margin-top: 5px;">
+        </div>
+    </div>
+
+    <script>
+        function getData(key) { return JSON.parse(localStorage.getItem(key) || '[]'); }
+        function saveData(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+
+        function logAudit(action, details, amount) {
+            let audit = getData('audit_log');
+            audit.unshift({ action, details, amount: amount || 0, time: new Date().toLocaleString('ar-SA') });
+            saveData('audit_log', audit);
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+            refreshAllData();
+        }
+
+        document.getElementById('saleType').addEventListener('change', function() {
+            document.getElementById('debtorGroup').style.display = (this.value === 'debt') ? 'block' : 'none';
+        });
+
+        function addInventoryItem() {
+            let name = document.getElementById('invName').value.trim();
+            let buy = parseFloat(document.getElementById('invBuyPrice').value);
+            let sell = parseFloat(document.getElementById('invSellPrice').value);
+            let qty = parseInt(document.getElementById('invQty').value);
+
+            if (!name || isNaN(buy) || isNaN(sell) || isNaN(qty)) {
+                alert('الرجاء إدخال كافة بيانات الصنف بشكل صحيح');
+                return;
+            }
+
+            let inventory = getData('inventory');
+            inventory.push({ id: Date.now(), name, buy, sell, qty });
+            saveData('inventory', inventory);
+            logAudit('إضافة صنف', name + ' (كمية: ' + qty + ')', sell * qty);
+
+            document.getElementById('invName').value = '';
+            document.getElementById('invBuyPrice').value = '';
+            document.getElementById('invSellPrice').value = '';
+            document.getElementById('invQty').value = '';
+            refreshAllData();
+            alert('تمت إضافة الصنف بنجاح');
+        }
+
+        function deleteInventoryItem(id) {
+            if (!confirm('هل أنت متأكد من حذف هذا الصنف؟')) return;
+            let inventory = getData('inventory').filter(item => item.id !== id);
+            saveData('inventory', inventory);
+            refreshAllData();
+        }
+
+        function recordSale() {
+            let itemId = parseInt(document.getElementById('saleItemSelect').value);
+            let qty = parseInt(document.getElementById('saleQty').value);
+            let type = document.getElementById('saleType').value;
+            let debtorName = document.getElementById('saleDebtorName').value.trim();
+
+            let inventory = getData('inventory');
+            let item = inventory.find(i => i.id === itemId);
+
+            if (!item) {
+                alert('الرجاء اختيار صنف صحيح');
+                return;
+            }
+            if (item.qty < qty) {
+                alert('الكمية المطلوبة غير متوفرة في المخزون! المتبقي: ' + item.qty);
+                return;
+            }
+
+            let totalSale = item.sell * qty;
+            let totalProfit = (item.sell - item.buy) * qty;
+
+            item.qty -= qty;
+            saveData('inventory', inventory);
+
+            let sales = getData('sales');
+            sales.unshift({ itemName: item.name, qty, total: totalSale, profit: totalProfit, type, time: new Date().toLocaleString('ar-SA') });
+            saveData('sales', sales);
+
+            if (type === 'debt') {
+                if (!debtorName) debtorName = 'عميل غير محدد';
+                let debts = getData('debts');
+                let debtor = debts.find(d => d.name === debtorName);
+                if (debtor) {
+                    debtor.amount += totalSale;
+                } else {
+                    debts.push({ name: debtorName, amount: totalSale });
+                }
+                saveData('debts', debts);
+                logAudit('بيع آجل', 'إلى العميل: ' + debtorName + ' - ' + item.name, totalSale);
+            } else {
+                logAudit('بيع نقدي', item.name + ' (عدد ' + qty + ')', totalSale);
+            }
+
+            refreshAllData();
+            alert('تمت عملية البيع بنجاح!');
+        }
+
+        function recordExpense() {
+            let desc = document.getElementById('expDesc').value.trim();
+            let amount = parseFloat(document.getElementById('expAmount').value);
+
+            if (!desc || isNaN(amount)) {
+                alert('الرجاء إدخال بيان ومبلغ المصروف');
+                return;
+            }
+
+            let expenses = getData('expenses');
+            expenses.unshift({ desc, amount, time: new Date().toLocaleString('ar-SA') });
+            saveData('expenses', expenses);
+            logAudit('مصروف', desc, amount);
+
+            document.getElementById('expDesc').value = '';
+            document.getElementById('expAmount').value = '';
+            refreshAllData();
+            alert('تم حفظ المصروف');
+        }
+
+        function payDebt(index) {
+            let debts = getData('debts');
+            let paid = prompt('أدخل المبلغ المدفوع من العميل (' + debts[index].name + '):', debts[index].amount);
+            if (paid === null) return;
+            let paidAmount = parseFloat(paid);
+            if (isNaN(paidAmount) || paidAmount <= 0) return;
+
+            debts[index].amount -= paidAmount;
+            if (debts[index].amount <= 0) {
+                debts.splice(index, 1);
+            }
+            saveData('debts', debts);
+            logAudit('سداد دين', 'من العميل: ' + debts[index].name, paidAmount);
+            refreshAllData();
+        }
+
+        function refreshAllData() {
+            let inventory = getData('inventory');
+            let invHtml = '';
+            let selectHtml = '';
+            let totalStockVal = 0;
+
+            inventory.forEach(i => {
+                totalStockVal += (i.buy * i.qty);
+                invHtml += `<tr><td>${i.name}</td><td>${i.buy}</td><td>${i.sell}</td><td>${i.qty}</td><td><button class="action-btn btn-danger" style="padding:4px 8px;font-size:11px;" onclick="deleteInventoryItem(${i.id})">حذف</button></td></tr>`;
+                selectHtml += `<option value="${i.id}">${i.name} (متوفر: ${i.qty} - سعر: ${i.sell})</option>`;
+            });
+            document.getElementById('inventoryTableBody').innerHTML = invHtml || '<tr><td colspan="5">لا توجد أصناف</td></tr>';
+            document.getElementById('saleItemSelect').innerHTML = selectHtml || '<option value="">لا توجد أصناف متاحة</option>';
+
+            let sales = getData('sales');
+            let salesHtml = '';
+            let todaySales = 0;
+            let todayProfit = 0;
+            sales.forEach(s => {
+                todaySales += s.total;
+                todayProfit += s.profit;
+                salesHtml += `<tr><td>${s.itemName}</td><td>${s.qty}</td><td>${s.total}</td><td>${s.type === 'cash' ? 'نقداً' : 'آجل'}</td><td>${s.time}</td></tr>`;
+            });
+            document.getElementById('salesTableBody').innerHTML = salesHtml || '<tr><td colspan="5">لا توجد مبيعات مسجلة</td></tr>';
+
+            document.getElementById('lblTodaySales').innerText = todaySales + ' ر.ي';
+            document.getElementById('lblTodayProfit').innerText = todayProfit + ' ر.ي';
+            document.getElementById('lblTotalProfit').innerText = todayProfit + ' ر.ي';
+            document.getElementById('lblStockValue').innerText = totalStockVal + ' ر.ي';
+
+            let expenses = getData('expenses');
+            let expHtml = '';
+            let totalExp = 0;
+            expenses.forEach(e => {
+                totalExp += e.amount;
+                expHtml += `<tr><td>${e.desc}</td><td>${e.amount}</td><td>${e.time}</td></tr>`;
+            });
+            document.getElementById('expensesTableBody').innerHTML = expHtml || '<tr><td colspan="3">لا توجد مصروفات</td></tr>';
+            document.getElementById('lblTotalExpenses').innerText = totalExp + ' ر.ي';
+
+            let debts = getData('debts');
+            let debtsHtml = '';
+            let totalDebts = 0;
+            debts.forEach((d, idx) => {
+                totalDebts += d.amount;
+                debtsHtml += `<tr><td>${d.name}</td><td>${d.amount} ر.ي</td><td><button class="action-btn" style="padding:4px 8px;font-size:11px;" onclick="payDebt(${idx})">تسجيل سداد</button></td></tr>`;
+            });
+            document.getElementById('debtsTableBody').innerHTML = debtsHtml || '<tr><td colspan="3">لا توجد ديون مسجلة</td></tr>';
+            document.getElementById('lblTotalDebts').innerText = totalDebts + ' ر.ي';
+
+            let audit = getData('audit_log');
+            let auditHtml = '';
+            audit.forEach(a => {
+                auditHtml += `<tr><td><b>${a.action}</b></td><td>${a.details}</td><td>${a.amount} ر.ي</td><td>${a.time}</td></tr>`;
+            });
+            document.getElementById('auditTableBody').innerHTML = auditHtml || '<tr><td colspan="4">لا توجد سجلات بعد</td></tr>';
+        }
+
+        function exportBackup() {
+            let backupData = {
+                inventory: getData('inventory'),
+                sales: getData('sales'),
+                expenses: getData('expenses'),
+                debts: getData('debts'),
+                audit_log: getData('audit_log'),
+                version: '2.0.0',
+                date: new Date().toISOString()
+            };
+            let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+            let downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "mohasabat_bagalati_backup_" + new Date().toISOString().slice(0,10) + ".json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importBackup(event) {
+            let file = event.target.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let json = JSON.parse(e.target.result);
+                    if (json.inventory) saveData('inventory', json.inventory);
+                    if (json.sales) saveData('sales', json.sales);
+                    if (json.expenses) saveData('expenses', json.expenses);
+                    if (json.debts) saveData('debts', json.debts);
+                    if (json.audit_log) saveData('audit_log', json.audit_log);
+                    alert('تمت استعادة النسخة الاحتياطية بنجاح!');
+                    refreshAllData();
+                } catch (err) {
+                    alert('ملف النسخة الاحتياطية غير صالح!');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        window.onload = function() {
+            refreshAllData();
+        };
+    </script>
 </body>
 </html>
