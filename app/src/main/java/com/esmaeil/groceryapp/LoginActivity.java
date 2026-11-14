@@ -41,7 +41,6 @@ public class LoginActivity extends AppCompatActivity {
                         if (enteredPin.equals(savedPin)) {
                             Toast.makeText(this, "تم تسجيل الدخول بنجاح", Toast.LENGTH_SHORT).show();
                             
-                            // تم تفعيل الانتقال للشاشة الرئيسية بنجاح
                             Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                             startActivity(intent);
                             finish();
