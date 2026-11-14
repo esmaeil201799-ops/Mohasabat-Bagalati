@@ -1,4 +1,4 @@
-name: Mohasabat Bagalati - Ultimate Production Build
+name: Mohasabat Bagalati - Production Ready
 
 on:
   push:
@@ -23,14 +23,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Gradle & Generate Wrapper
+      - name: Setup Gradle 8.9 Environment
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gradle
-          gradle wrapper --gradle-version 8.9
-          chmod +x gradlew
+          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q gradle-8.9-bin.zip
+          echo "$PWD/gradle-8.9/bin" >> $GITHUB_PATH
 
-      - name: Auto-Inject Core Accounting & Room Database
+      - name: Inject Database, DAOs & Core Accounting Logic
         run: |
           mkdir -p app/src/main/java/com/esmaeil/groceryapp
 
@@ -210,8 +209,11 @@ jobs:
           }
           EOF
 
-      - name: Build Debug APK with Room Core
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Generate Wrapper & Build Debug APK
+        run: |
+          gradle wrapper --gradle-version 8.9
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Verify APK Exists
         run: |
