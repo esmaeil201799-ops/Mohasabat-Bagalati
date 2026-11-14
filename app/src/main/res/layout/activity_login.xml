@@ -22,9 +22,8 @@
         android:layout_height="wrap_content"
         android:hint="اسم المستخدم"
         android:inputType="text"
-        android:padding="12dp"
-        android:layout_marginBottom="16dp"
-        android:background="@android:drawable.edit_text"/>
+        android:padding="16dp"
+        android:layout_marginBottom="16dp"/>
 
     <EditText
         android:id="@+id/etPassword"
@@ -32,9 +31,8 @@
         android:layout_height="wrap_content"
         android:hint="كلمة المرور"
         android:inputType="textPassword"
-        android:padding="12dp"
-        android:layout_marginBottom="24dp"
-        android:background="@android:drawable.edit_text"/>
+        android:padding="16dp"
+        android:layout_marginBottom="24dp"/>
 
     <Button
         android:id="@+id/btnLogin"
@@ -46,7 +44,6 @@
         android:padding="12dp"
         android:layout_marginBottom="16dp"/>
 
-    <!-- زر إعادة تعيين كلمة المرور بحجم ومظهر مرتب ومضبوط -->
     <TextView
         android:id="@+id/tvForgotPassword"
         android:layout_width="wrap_content"
@@ -55,11 +52,8 @@
         android:textColor="#757575"
         android:textSize="14sp"
         android:padding="8dp"
-        android:layout_marginBottom="12dp"
-        android:clickable="true"
-        android:focusable="true"/>
+        android:layout_marginBottom="12dp"/>
 
-    <!-- زر إعدادات التطبيق الداخلية -->
     <TextView
         android:id="@+id/tvAppSettings"
         android:layout_width="wrap_content"
@@ -67,8 +61,6 @@
         android:text="إعدادات النظام الداخلية"
         android:textColor="#1976D2"
         android:textSize="14sp"
-        android:padding="8dp"
-        android:clickable="true"
-        android:focusable="true"/>
+        android:padding="8dp"/>
 
 </LinearLayout>
