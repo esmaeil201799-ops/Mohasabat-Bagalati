@@ -1,34 +1,65 @@
-package com.esmaeil.groceryapp;
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#F4F6F8"
+    android:padding="24dp"
+    android:layoutDirection="rtl">
 
-import android.os.Bundle;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
-import androidx.appcompat.app.AppCompatActivity;
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="محاسبة بقالتي 2.0"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#1B5E20"
+        android:layout_marginBottom="8dp" />
 
-public class MainActivity extends AppCompatActivity {
-    private WebView webView;
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="النظام التجاري المدمج لإدارة البقالات"
+        android:textSize="14sp"
+        android:textColor="#555555"
+        android:layout_marginBottom="32dp" />
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        webView = new WebView(this);
-        setContentView(webView);
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="20dp"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-        WebSettings webSettings = webView.getSettings();
-        webSettings.setJavaScriptEnabled(true);
-        webSettings.setDomStorageEnabled(true);
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etPinCode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="أدخل الرمز السري (افتراضي: 1234)"
+            android:inputType="numberPassword"
+            android:maxLength="6"
+            android:textSize="18sp"
+            android:gravity="center" />
+    </com.google.android.material.textfield.TextInputLayout>
 
-        webView.setWebViewClient(new WebViewClient());
-        webView.loadUrl("file:///android_asset/index.html");
-    }
+    <Button
+        android:id="@+id/btnLogin"
+        android:layout_width="match_parent"
+        android:layout_height="55dp"
+        android:text="دخول للنظام"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#2E7D32"
+        android:layout_marginBottom="12dp" />
 
-    @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
-    }
-}
+    <Button
+        android:id="@+id/btnResetPin"
+        android:layout_width="match_parent"
+        android:layout_height="45dp"
+        android:text="إعادة تعيين الرمز الإفتراضي"
+        android:textSize="14sp"
+        android:textColor="#2E7D32"
+        style="?attr/materialButtonOutlinedStyle" />
+
+</LinearLayout>
