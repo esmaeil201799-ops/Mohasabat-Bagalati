@@ -60,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // تحميل المحرك المحاسبي المحلي
         webView.loadUrl("file:///android_asset/index.html");
     }
 
