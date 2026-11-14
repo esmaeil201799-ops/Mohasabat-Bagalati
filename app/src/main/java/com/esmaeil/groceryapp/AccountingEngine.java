@@ -1,16 +1,15 @@
 package com.esmaeil.groceryapp;
 
-import androidx.annotation.NonNull;
-import androidx.room.Entity;
-import androidx.room.PrimaryKey;
+public class AccountingEngine {
+    // محرك القيود المحاسبية المزدوجة ونظام الأستاذ العام
+    private final AppDatabase database;
 
-@Entity(tableName = "accounts")
-public class Account {
-    @PrimaryKey
-    @NonNull
-    public String accountId;
-    public String accountName;
-    public String accountType; // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
-    public String parentAccountId;
-    public long balance;
+    public AccountingEngine(AppDatabase database) {
+        this.database = database;
+    }
+
+    // التحقق من توازن القيد المحاسبي (مدين = دائن) بدقة مالية تامة
+    public boolean validateBalancedEntry(long totalDebit, long totalCredit) {
+        return totalDebit == totalCredit && totalDebit > 0;
+    }
 }
