@@ -1,6 +1,5 @@
 package com.esmaeil.groceryapp;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
@@ -36,19 +35,12 @@ public class LoginActivity extends AppCompatActivity {
                 return;
             }
 
-            // الدخول المعتمد لنظام أبو باسل المحاسبي
-            if (user.equals("admin") || user.equals("أبو باسل") || user.equals("اسماعيل")) {
-                Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                startActivity(intent);
-                finish();
-            } else {
-                Toast.makeText(this, "بيانات الدخول غير صحيحة، يرجى التحقق", Toast.LENGTH_SHORT).show();
-            }
+            Toast.makeText(this, "لم يتم إعداد مستخدم آمن بعد؛ لم يتم تسجيل الدخول", Toast.LENGTH_LONG).show();
         });
 
         // زر إعادة تعيين كلمة المرور (بحجم وتنسيق مرتب ومضبوط)
         tvForgotPassword.setOnClickListener(v -> {
-            Toast.makeText(this, "تم إرسال رابط استعادة الكلمة للنظام المحلي الآمن", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "استعادة كلمة المرور غير متاحة: لم يتم إعداد إدارة المستخدمين", Toast.LENGTH_LONG).show();
         });
 
         // تفعيل إعدادات التطبيق الداخلية (إدارة العملة والبيانات بدون إنترنت)
@@ -58,9 +50,9 @@ public class LoginActivity extends AppCompatActivity {
     private void showAppSettingsDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("إعدادات نظام بقالتي الداخلية");
-        builder.setMessage("إدارة خيارات النظام المحلي:\n\n• العملة الأساسية: ريال يمني (YER) / سعودي (SAR)\n• قاعدة البيانات: محلية مشفرة (Room SQLite)\n• وضع العمل: بدون إنترنت (Offline-First)");
+        builder.setMessage("لم يتم إعداد هذه الخيارات بعد.\n\n• العملة والمستخدمون: غير مهيئين\n• قاعدة البيانات: SQLite محلية غير مشفرة\n• المزامنة السحابية: غير مهيأة");
         builder.setPositiveButton("حفظ وتطبيق", (dialog, which) -> {
-            Toast.makeText(this, "تم تحديث إعدادات النظام بنجاح", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "لم تُحفظ الإعدادات؛ لا يوجد تخزين إعدادات مهيأ", Toast.LENGTH_LONG).show();
         });
         builder.setNegativeButton("إغلاق", null);
         builder.show();

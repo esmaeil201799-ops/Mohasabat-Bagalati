@@ -20,7 +20,7 @@
         android:id="@+id/etUsername"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="اسم المستخدم"
+        android:hint="اسم المستخدم (لا يوجد مستخدم مهيأ)"
         android:inputType="text"
         android:padding="16dp"
         android:layout_marginBottom="16dp"/>
