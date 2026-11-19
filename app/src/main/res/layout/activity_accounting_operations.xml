@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#F5F5F5">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="العمليات المحاسبية"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:background="#2E7D32"
+            android:padding="14dp"
+            android:gravity="center"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnPostPurchase"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="فاتورة شراء من مورد" />
+
+        <Button
+            android:id="@+id/btnReceiveCustomer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="سند قبض من عميل" />
+
+        <Button
+            android:id="@+id/btnPaySupplier"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="سند سداد لمورد" />
+
+        <Button
+            android:id="@+id/btnPostExpense"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="مصروف تشغيلي" />
+
+        <Button
+            android:id="@+id/btnPostReturn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="مرتجع بيع أو شراء" />
+
+        <Button
+            android:id="@+id/btnOwnerWithdrawal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="مسحوبات المالك النقدية أو العينية" />
+
+        <Button
+            android:id="@+id/btnOperationsDone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="العودة" />
+
+    </LinearLayout>
+</ScrollView>

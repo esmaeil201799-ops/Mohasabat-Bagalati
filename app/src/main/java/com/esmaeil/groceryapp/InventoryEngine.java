@@ -28,6 +28,11 @@ public class InventoryEngine {
         if (quotientAndRemainder[1].shiftLeft(1).compareTo(totalQuantity) >= 0) {
             quotientAndRemainder[0] = quotientAndRemainder[0].add(BigInteger.ONE);
         }
-        return quotientAndRemainder[0].longValueExact();
+        BigInteger result = quotientAndRemainder[0];
+        if (result.compareTo(BigInteger.valueOf(Long.MIN_VALUE)) < 0
+                || result.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0) {
+            throw new ArithmeticException("BigInteger out of long range");
+        }
+        return result.longValue();
     }
 }
