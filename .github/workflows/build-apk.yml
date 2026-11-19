@@ -50,11 +50,16 @@ jobs:
       - name: Run Room persistence tests on an emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 30
           target: google_apis
-          arch: x86_64
+          arch: x86
           profile: pixel_2
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
           disable-animations: true
+          disable-spellchecker: true
+          disable-linux-hw-accel: true
           script: ./gradlew --no-daemon connectedDebugAndroidTest; test_result=$?; adb logcat -d -v threadtime > app/build/outputs/androidTest-logcat.txt 2>&1 || true; exit "$test_result"
 
       - name: Upload APK Artifact
