@@ -55,14 +55,7 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
-          script: |
-            if ./gradlew --no-daemon connectedDebugAndroidTest; then
-              test_result=0
-            else
-              test_result=$?
-            fi
-            adb logcat -d -v threadtime > app/build/outputs/androidTest-logcat.txt 2>&1 || true
-            exit "$test_result"
+          script: ./gradlew --no-daemon connectedDebugAndroidTest; test_result=$?; adb logcat -d -v threadtime > app/build/outputs/androidTest-logcat.txt 2>&1 || true; exit "$test_result"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
