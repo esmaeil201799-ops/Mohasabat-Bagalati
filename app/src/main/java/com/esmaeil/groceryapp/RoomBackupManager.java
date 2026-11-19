@@ -38,7 +38,6 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 import javax.crypto.Cipher;
-import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
@@ -167,11 +166,9 @@ public final class RoomBackupManager {
             cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"),
                     new GCMParameterSpec(GCM_TAG_BITS, nonce));
             cipher.updateAAD(header);
-            try (CipherInputStream decrypted = new CipherInputStream(input, cipher);
+            try (DataInputStream encryptedInput = input;
                  FileOutputStream output = new FileOutputStream(zipFile)) {
-                copy(decrypted, output, MAX_ARCHIVE_BYTES);
-            } catch (IOException exception) {
-                throw new IOException("كلمة المرور غير صحيحة أو الأرشيف تالف", exception);
+                decryptToFile(encryptedInput, output, cipher);
             }
             if (!MessageDigest.isEqual(expectedZipHash, sha256Bytes(zipFile))) {
                 throw new IOException("فشل التحقق من SHA-256 للأرشيف");
@@ -528,6 +525,52 @@ public final class RoomBackupManager {
                 throw new IOException("حجم الأرشيف يتجاوز الحد المسموح");
             }
             output.write(buffer, 0, read);
+        }
+    }
+
+    private static void decryptToFile(InputStream input, OutputStream output, Cipher cipher)
+            throws IOException, GeneralSecurityException {
+        byte[] buffer = new byte[16 * 1024];
+        try {
+            long encryptedBytes = 0;
+            long plaintextBytes = 0;
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                encryptedBytes += read;
+                if (encryptedBytes > MAX_ARCHIVE_BYTES + GCM_TAG_BITS / 8) {
+                    throw new IOException("حجم الأرشيف يتجاوز الحد المسموح");
+                }
+                byte[] plaintext = cipher.update(buffer, 0, read);
+                if (plaintext != null) {
+                    try {
+                        plaintextBytes += plaintext.length;
+                        if (plaintextBytes > MAX_ARCHIVE_BYTES) {
+                            throw new IOException("حجم الأرشيف يتجاوز الحد المسموح");
+                        }
+                        output.write(plaintext);
+                    } finally {
+                        Arrays.fill(plaintext, (byte) 0);
+                    }
+                }
+            }
+
+            byte[] finalPlaintext;
+            try {
+                finalPlaintext = cipher.doFinal();
+            } catch (GeneralSecurityException exception) {
+                throw new IOException("كلمة المرور غير صحيحة أو الأرشيف تالف", exception);
+            }
+            try {
+                plaintextBytes += finalPlaintext.length;
+                if (plaintextBytes > MAX_ARCHIVE_BYTES) {
+                    throw new IOException("حجم الأرشيف يتجاوز الحد المسموح");
+                }
+                output.write(finalPlaintext);
+            } finally {
+                Arrays.fill(finalPlaintext, (byte) 0);
+            }
+        } finally {
+            Arrays.fill(buffer, (byte) 0);
         }
     }
 
