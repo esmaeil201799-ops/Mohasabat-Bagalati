@@ -68,10 +68,10 @@ public final class PaymentService {
                     receipt ? "system-receivables" : "system-payables",
                     receipt ? "ذمم العملاء" : "ذمم الموردين",
                     receipt ? "ASSET" : "LIABILITY", invoice.currencyCode);
-            String entryId = UUID.randomUUID().toString();
             JournalEntry entry = AccountingAccounts.newEntry(database,
                     receipt ? "سند قبض " + idempotencyKey : "سند سداد " + idempotencyKey,
                     receipt ? "RECEIPT" : "SUPPLIER_PAYMENT", idempotencyKey, amount);
+            String entryId = entry.entryId;
             JournalLine cashLine = AccountingAccounts.line(entryId, cashAccount, null,
                     receipt ? amount : 0, receipt ? 0 : amount);
             JournalLine partnerLine = AccountingAccounts.line(entryId, partnerAccount,

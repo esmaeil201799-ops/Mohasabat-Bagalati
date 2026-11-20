@@ -37,37 +37,47 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Run source checks, unit tests, and build APK
-        run: |
-          python3 check-project.py
-          ./gradlew --no-daemon clean check assembleDebug
+      - name: Build debug APK
+        run: ./gradlew --no-daemon :app:assembleDebug
 
       - name: Verify APK Exists
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
           echo "APK generated successfully."
 
-      - name: Run Room persistence tests on an emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: aosp_atd
-          arch: x86_64
-          cores: 2
-          ram-size: 2048M
-          heap-size: 512M
-          disable-animations: true
-          disable-spellchecker: true
-          script: ./gradlew --no-daemon connectedDebugAndroidTest; test_result=$?; adb logcat -d -v threadtime > app/build/outputs/androidTest-logcat.txt 2>&1 || true; exit "$test_result"
-
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Mohasabat-Bagalati-debug-apk
-          path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/reports/androidTests/connected/debug/
-            app/build/outputs/androidTest-logcat.txt
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Run source checks and JVM/Room tests
+        run: |
+          python3 check-project.py
+          ./gradlew --no-daemon check
+          python3 - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ET
+
+          reports = glob.glob("app/build/test-results/testDebugUnitTest/TEST-*.xml")
+          if not reports:
+              raise SystemExit("No JVM test reports were produced")
+
+          totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+          room_tests = 0
+          for report in reports:
+              root = ET.parse(report).getroot()
+              for key in totals:
+                  totals[key] += int(root.get(key, "0"))
+              if root.get("name", "").endswith(".RoomPersistenceTest"):
+                  room_tests += int(root.get("tests", "0"))
+
+          print(f"JVM tests: {totals}; RoomPersistenceTest executed: {room_tests}")
+          if totals["tests"] == 0 or room_tests < 16:
+              raise SystemExit("Expected nonzero JVM coverage including all Room persistence tests")
+          if totals["failures"] or totals["errors"]:
+              raise SystemExit("One or more JVM tests failed")
+          PY

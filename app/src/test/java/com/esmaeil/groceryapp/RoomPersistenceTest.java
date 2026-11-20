@@ -11,32 +11,63 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-import androidx.room.testing.MigrationTestHelper;
-import androidx.sqlite.db.SupportSQLiteDatabase;
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.Description;
 import org.junit.runner.RunWith;
+import org.junit.rules.TestRule;
+import org.junit.runners.model.Statement;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestRunner.class)
+@Config(sdk = 35)
 public class RoomPersistenceTest {
     private static final String TEST_DATABASE = "room-persistence-test.db";
     private static final String MIGRATION_DATABASE = "room-migration-test.db";
     private static final String BACKUP_DATABASE = "room-backup-test.db";
     private Context context;
-    private MigrationTestHelper migrationHelper;
+
+    @Rule
+    public final TestRule runRoomWorkOffMainThread = new TestRule() {
+        @Override
+        public Statement apply(Statement base, Description description) {
+            return new Statement() {
+                @Override
+                public void evaluate() throws Throwable {
+                    AtomicReference<Throwable> failure = new AtomicReference<>();
+                    Thread testThread = new Thread(() -> {
+                        try {
+                            base.evaluate();
+                        } catch (Throwable throwable) {
+                            failure.set(throwable);
+                        }
+                    }, "RoomTest-" + description.getMethodName());
+                    testThread.setContextClassLoader(Thread.currentThread().getContextClassLoader());
+                    testThread.start();
+                    testThread.join();
+                    if (failure.get() != null) {
+                        throw failure.get();
+                    }
+                }
+            };
+        }
+    };
 
     @Before
     public void setUp() {
@@ -44,11 +75,6 @@ public class RoomPersistenceTest {
         context.deleteDatabase(TEST_DATABASE);
         context.deleteDatabase(MIGRATION_DATABASE);
         context.deleteDatabase(BACKUP_DATABASE);
-        migrationHelper = new MigrationTestHelper(
-                InstrumentationRegistry.getInstrumentation(),
-                AppDatabase.class,
-                Collections.emptyList(),
-                new FrameworkSQLiteOpenHelperFactory());
     }
 
     @After
@@ -192,7 +218,10 @@ public class RoomPersistenceTest {
     @Test
     public void migrationFromVersionSixAddsLogicalDeleteWithoutChangingExistingRows()
             throws IOException {
-        SupportSQLiteDatabase versionSix = migrationHelper.createDatabase(MIGRATION_DATABASE, 6);
+        createVersionSixDatabase();
+        SQLiteDatabase versionSix = SQLiteDatabase.openDatabase(
+                context.getDatabasePath(MIGRATION_DATABASE).getPath(), null,
+                SQLiteDatabase.OPEN_READWRITE);
         versionSix.execSQL("INSERT INTO inventory_items "
                 + "(itemId, itemName, barcode, category, baseUnitId, quantity, "
                 + "purchasePriceAverage, sellingPrice, minStockAlert, expiryDate) "
@@ -214,14 +243,19 @@ public class RoomPersistenceTest {
     @Test
     public void migrationsThroughVersionNinePreserveUserAndAddAccountingFields()
             throws IOException {
-        SupportSQLiteDatabase versionSix = migrationHelper.createDatabase(MIGRATION_DATABASE, 6);
+        createVersionSixDatabase();
+        SQLiteDatabase versionSix = SQLiteDatabase.openDatabase(
+                context.getDatabasePath(MIGRATION_DATABASE).getPath(), null,
+                SQLiteDatabase.OPEN_READWRITE);
         versionSix.execSQL("INSERT INTO app_users "
                 + "(userId, username, role, pinSalt, pinVerifier, isActive, createdAt) "
                 + "VALUES ('legacy-user', 'legacy', 'OWNER', X'01', X'02', 1, 123)");
-        AppDatabase.MIGRATION_6_7.migrate(versionSix);
-        AppDatabase.MIGRATION_7_8.migrate(versionSix);
+        versionSix.close();
 
-        Cursor user = versionSix.query("SELECT userId, username, failedPinAttempts, "
+        AppDatabase database = AppDatabase.open(context, MIGRATION_DATABASE);
+        SupportSQLiteDatabase migrated = database.getOpenHelper().getWritableDatabase();
+
+        Cursor user = migrated.query("SELECT userId, username, failedPinAttempts, "
                 + "pinLockedUntil, recoverySalt FROM app_users WHERE userId = 'legacy-user'");
         try {
             assertTrue(user.moveToFirst());
@@ -233,8 +267,7 @@ public class RoomPersistenceTest {
         } finally {
             user.close();
         }
-        AppDatabase.MIGRATION_8_9.migrate(versionSix);
-        Cursor invoiceColumns = versionSix.query("PRAGMA table_info(invoices)");
+        Cursor invoiceColumns = migrated.query("PRAGMA table_info(invoices)");
         boolean hasCurrency = false;
         boolean hasReturns = false;
         try {
@@ -245,7 +278,7 @@ public class RoomPersistenceTest {
             }
         } finally {
             invoiceColumns.close();
-            versionSix.close();
+            database.close();
         }
         assertTrue(hasCurrency);
         assertTrue(hasReturns);
@@ -755,6 +788,64 @@ public class RoomPersistenceTest {
                 database.execSQL("INSERT INTO stock_movements VALUES "
                         + "('legacy-movement', 'legacy-item', 'legacy-ref', 'ADJUSTMENT', -4, 12, "
                         + "'2026-01-01')");
+            }
+
+            @Override
+            public void onUpgrade(SQLiteDatabase database, int oldVersion, int newVersion) {
+                throw new IllegalStateException("Unexpected legacy test database upgrade");
+            }
+        };
+        legacyDatabase.getWritableDatabase();
+        legacyDatabase.close();
+    }
+
+    private void createVersionSixDatabase() throws IOException {
+        SQLiteOpenHelper legacyDatabase = new SQLiteOpenHelper(context, MIGRATION_DATABASE, null, 6) {
+            @Override
+            public void onCreate(SQLiteDatabase database) {
+                try (InputStream schemaStream = RoomPersistenceTest.class.getClassLoader()
+                        .getResourceAsStream(
+                                "com.esmaeil.groceryapp.AppDatabase/6.json")) {
+                    if (schemaStream == null) {
+                        throw new IOException("Room version 6 schema resource is missing");
+                    }
+                    ByteArrayOutputStream schemaBytes = new ByteArrayOutputStream();
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    while ((read = schemaStream.read(buffer)) != -1) {
+                        schemaBytes.write(buffer, 0, read);
+                    }
+                    JSONObject exported = new JSONObject(
+                            new String(schemaBytes.toByteArray(), StandardCharsets.UTF_8));
+                    JSONObject schema = exported.getJSONObject("database");
+                    org.json.JSONArray entities = schema.getJSONArray("entities");
+                    for (int index = 0; index < entities.length(); index++) {
+                        JSONObject entity = entities.getJSONObject(index);
+                        database.execSQL(entity.getString("createSql").replace(
+                                "${TABLE_NAME}", entity.getString("tableName")));
+                    }
+                    for (int index = 0; index < entities.length(); index++) {
+                        org.json.JSONArray indices = entities.getJSONObject(index)
+                                .optJSONArray("indices");
+                        if (indices == null) {
+                            continue;
+                        }
+                        for (int indexInEntity = 0; indexInEntity < indices.length();
+                             indexInEntity++) {
+                            JSONObject entityIndex = indices.getJSONObject(indexInEntity);
+                            database.execSQL(entityIndex.getString("createSql").replace(
+                                    "${TABLE_NAME}", entities.getJSONObject(index)
+                                            .getString("tableName")));
+                        }
+                    }
+                    org.json.JSONArray setupQueries = schema.getJSONArray("setupQueries");
+                    for (int index = 0; index < setupQueries.length(); index++) {
+                        database.execSQL(setupQueries.getString(index));
+                    }
+                } catch (IOException | org.json.JSONException exception) {
+                    throw new IllegalStateException("Could not create exported Room v6 schema",
+                            exception);
+                }
             }
 
             @Override

@@ -40,9 +40,9 @@ public final class ExpenseService {
                     "الصندوق", "ASSET", currencyCode);
             String expenseAccount = AccountingAccounts.account(database,
                     "system-operating-expenses", "مصروفات تشغيلية", "EXPENSE", currencyCode);
-            String entryId = UUID.randomUUID().toString();
             JournalEntry entry = AccountingAccounts.newEntry(database,
                     "مصروف " + normalizedDescription, "EXPENSE", idempotencyKey, amount);
+            String entryId = entry.entryId;
             Expense expense = new Expense();
             expense.expenseId = UUID.randomUUID().toString();
             expense.idempotencyKey = idempotencyKey;

@@ -25,8 +25,8 @@ assert 'database.runInTransaction' in sale_service, 'sales are not posted transa
 assert 'import android.database.sqlite.SQLiteOpenHelper' not in java_sources
 assert 'import android.database.sqlite.SQLiteDatabase' not in java_sources
 assert 'android.webkit.WebView' not in java_sources
-room_test = (root / 'app/src/androidTest/java/com/esmaeil/groceryapp/RoomPersistenceTest.java')
-assert room_test.is_file(), 'Room persistence instrumentation tests missing'
+room_test = (root / 'app/src/test/java/com/esmaeil/groceryapp/RoomPersistenceTest.java')
+assert room_test.is_file(), 'Room persistence tests missing'
 room_test_source = room_test.read_text(encoding='utf-8')
 assert 'inventoryAndPartnersSurviveDatabaseCloseAndReopen' in room_test_source
 assert 'migrationFromVersionFourPreservesInventoryAndJournalData' in room_test_source
@@ -69,7 +69,7 @@ print('PASS: index.html exists')
 print('PASS: app label/source marker present')
 print('PASS: legacy HTML backup remains separate from the native Room runtime')
 print('PASS: Android runtime uses Room without independent SQLite/WebView storage')
-print('PASS: Room restart and version-4 migration instrumentation tests are present')
+print('PASS: Room restart and version-4 migration tests are present')
 print('PASS: Room v9 migrations, transactional sale/returns, rollback, and legacy import tests are present')
 print(f'PASS: {len(ids)} HTML IDs, no duplicates')
 print('PASS: Arabic app identity, separate About screen, and unset contact email')

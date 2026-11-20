@@ -73,6 +73,7 @@ public final class RoomBackupManager {
                 "room-backup-" + UUID.randomUUID() + ".zip");
         byte[] key = null;
         try {
+            String databaseName = database.getOpenHelper().getDatabaseName();
             SupportSQLiteDatabase sqlite = database.getOpenHelper().getWritableDatabase();
             Map<String, Long> counts = tableCounts(sqlite);
             long debitTotal = scalar(sqlite,
@@ -86,7 +87,7 @@ public final class RoomBackupManager {
             long sarCash = database.erpDao().getCashBalance(MoneyCurrency.SAR);
             checkpointAndClose(database);
 
-            File sourceDatabase = context.getDatabasePath(AppDatabase.DATABASE_NAME);
+            File sourceDatabase = context.getDatabasePath(databaseName);
             if (!sourceDatabase.isFile() || sourceDatabase.length() == 0) {
                 throw new IOException("ملف قاعدة Room غير موجود أو فارغ");
             }
@@ -222,7 +223,8 @@ public final class RoomBackupManager {
             throw new IOException("ملف النسخة المؤقت غير موجود");
         }
         checkpointAndClose(currentDatabase);
-        File currentFile = context.getDatabasePath(AppDatabase.DATABASE_NAME);
+        String databaseName = currentDatabase.getOpenHelper().getDatabaseName();
+        File currentFile = context.getDatabasePath(databaseName);
         File preservedFile = new File(currentFile.getPath()
                 + ".before-restore-" + UUID.randomUUID());
         File candidateFile = candidate.databaseFile;
@@ -239,7 +241,7 @@ public final class RoomBackupManager {
                 throw new IOException("تعذر تثبيت النسخة؛ بقيت قاعدة البيانات الأصلية محفوظة");
             }
             installed = true;
-            AppDatabase restored = AppDatabase.open(context);
+            AppDatabase restored = AppDatabase.open(context, databaseName);
             try {
                 validateLiveDatabase(restored, candidate.metadata);
                 candidate.markConsumed();

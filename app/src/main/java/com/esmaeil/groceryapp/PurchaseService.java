@@ -124,6 +124,8 @@ public final class PurchaseService {
                 movements.add(movement);
             }
 
+            JournalEntry entry = AccountingAccounts.newEntry(database,
+                    "ترحيل فاتورة شراء " + invoiceId, "PURCHASE", invoiceId, total);
             Invoice invoice = new Invoice();
             invoice.invoiceId = invoiceId;
             invoice.idempotencyKey = idempotencyKey;
@@ -137,6 +139,7 @@ public final class PurchaseService {
             invoice.directCosts = directCosts;
             invoice.total = total;
             invoice.paid = paid;
+            invoice.journalEntryId = entry.entryId;
             invoice.paymentStatus = paymentStatus(paid, total);
             invoice.status = "POSTED";
             database.erpDao().insertInvoice(invoice);
@@ -151,8 +154,6 @@ public final class PurchaseService {
                     database, PAYABLES, "ذمم الموردين", "LIABILITY", currencyCode);
             long roundingAdjustment = total - inventoryChange;
             List<JournalLine> journalLines = new ArrayList<>();
-            JournalEntry entry = AccountingAccounts.newEntry(database,
-                    "ترحيل فاتورة شراء " + invoiceId, "PURCHASE", invoiceId, total);
             if (inventoryChange > 0) {
                 journalLines.add(AccountingAccounts.line(
                         entry.entryId, inventoryAccount, null, inventoryChange, 0));
