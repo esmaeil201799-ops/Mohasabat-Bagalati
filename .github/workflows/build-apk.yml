@@ -1,8 +1,10 @@
-name: Mohasabat Bagalati - Production ERP Build
+name: Android build and tests
 
 on:
   push:
-    branches: [main, master]
+    branches: ['**']
+  pull_request:
+    branches: [main, master, 'feature/room-accounting-core']
   workflow_dispatch:
 
 permissions:
@@ -11,29 +13,32 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup JDK 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle 8.9 Environment
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v4.0.4
+
+      - name: Install required Android packages
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
-          unzip -q gradle-8.9-bin.zip
-          echo "$PWD/gradle-8.9/bin" >> $GITHUB_PATH
+          test -n "$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Grant Execute Permission for Gradlew
-        run: chmod +x gradlew || gradle wrapper --gradle-version 8.9
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Debug APK & Run Tests
-        run: ./gradlew assembleDebug test --no-daemon
+      - name: Build debug APK
+        run: ./gradlew --no-daemon :app:assembleDebug
 
       - name: Verify APK Exists
         run: |
@@ -42,8 +47,37 @@ jobs:
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: Mohasabat-Bagalati-Production-APK
+          name: Mohasabat-Bagalati-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
+
+      - name: Run source checks and JVM/Room tests
+        run: |
+          python3 check-project.py
+          ./gradlew --no-daemon check
+          python3 - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ET
+
+          reports = glob.glob("app/build/test-results/testDebugUnitTest/TEST-*.xml")
+          if not reports:
+              raise SystemExit("No JVM test reports were produced")
+
+          totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+          room_tests = 0
+          for report in reports:
+              root = ET.parse(report).getroot()
+              for key in totals:
+                  totals[key] += int(root.get(key, "0"))
+              if root.get("name", "").endswith(".RoomPersistenceTest"):
+                  room_tests += int(root.get("tests", "0"))
+
+          print(f"JVM tests: {totals}; RoomPersistenceTest executed: {room_tests}")
+          if totals["tests"] == 0 or room_tests < 19:
+              raise SystemExit("Expected JVM coverage including all 19 Room persistence tests")
+          if totals["failures"] or totals["errors"]:
+              raise SystemExit("One or more JVM tests failed")
+          PY

@@ -1,0 +1,83 @@
+# تقرير الحالة - محاسبة بقالتي
+
+## نطاق التنفيذ
+
+تم استكمال إصلاح اختبارات Room والمحاسبة والنسخ الاحتياطي على الفرع
+`feature/room-accounting-core`. لم يبدأ ترحيل SQLCipher، ولم تُرسل بيانات إلى
+خدمات خارجية، ولم تُستخدم بيانات تجارية حقيقية.
+
+## الإصلاحات
+
+- ربط فاتورة الشراء بالقيد المحاسبي الذي أنشأته الخدمة نفسها.
+- توحيد معرف القيد في سندات القبض والسداد ومصروفات التشغيل مع معرف القيد
+  الذي أنشأه `AccountingAccounts`.
+- جعل مدير النسخ الاحتياطي يقرأ قاعدة البيانات ويستعيدها باستخدام اسم قاعدة
+  Room الممرر، بدل افتراض اسم قاعدة التطبيق الثابت.
+- نقل مجموعة اختبارات Room من اختبار instrumentation غير المستقر إلى
+  Robolectric، وربط مخطط الإصدار 6 المصدّر بموارد الاختبار. الاختبارات تفتح
+  قواعد Room فعلية وتنفذ الترحيلات من الإصدار 6 إلى الإصدار الحالي.
+- تحديث فحص المصدر ومسار GitHub Actions لتشغيل اختبارات Room على JVM، والتحقق
+  من وجود نتائج فعلية، ورفع APK قبل الاختبارات كي لا يحجب فشل اختبار الأثر.
+
+## الملفات المعدّلة
+
+- `.github/workflows/build-apk.yml`
+- `app/build.gradle`
+- `app/src/main/java/com/esmaeil/groceryapp/ExpenseService.java`
+- `app/src/main/java/com/esmaeil/groceryapp/PaymentService.java`
+- `app/src/main/java/com/esmaeil/groceryapp/PurchaseService.java`
+- `app/src/main/java/com/esmaeil/groceryapp/RoomBackupManager.java`
+- نقل `RoomPersistenceTest.java` من `app/src/androidTest` إلى `app/src/test`
+- `check-project.py`
+- `REPORT_STATUS.md`
+
+## نتائج التحقق المحلي
+
+- `python3 check-project.py`: نجح.
+- `./gradlew --no-daemon clean check assembleDebug assembleDebugAndroidTest`:
+  نجح.
+- `./gradlew --no-daemon check` بعد إزالة اعتماد الاختبارات غير المستخدم:
+  نجح.
+- اختبارات JVM لكل نوع بناء: 22 اختبارًا، 22 ناجحًا، صفر فاشلة، صفر متخطاة
+  في Debug؛ و22 ناجحًا من 22 في Release.
+- مجموعة `RoomPersistenceTest`: 16/16 ناجحة في Debug و16/16 في Release.
+  تشمل الترحيلات، حفظ البيانات بعد إعادة الفتح، عمليات البيع والشراء والمرتجعات
+  والديون والقبض والسداد والمصروفات والمسحوبات، وسلامة الأرشيف المشفر واستعادته.
+- تم بناء APK التطبيق وAPK instrumentation. لم تُشغّل اختبارات على محاكي أو
+  جهاز فعلي؛ لا توجد حاليًا حالات instrumentation بعد نقل مجموعة Room إلى
+  Robolectric.
+- لا تزال أداة Android SDK المحلية تصدر تحذير توافق XML بين command-line tools
+  وSDK، كما أظهر Lint عدد 63 تحذيرًا، منها deprecated API في `BiometricLogin`
+  وتحذيرات اعتماديات وواجهات/نصوص موجودة. لم تُخفَ التحذيرات.
+- SHA-256 لـ APK Debug المحلي:
+  `2ebe830a1874df3d8ed4025b1efa89ca0588972ca29da10b38f651a2a5c75e63`
+- الاسم: `Mohasabat-Bagalati-debug-apk`. نسخة CI منشورة كـArtifact لمدة 14
+  يومًا ضمن [تشغيل GitHub Actions الناجح](https://github.com/esmaeil201799-ops/Mohasabat-Bagalati/actions/runs/44645685355).
+- Commit التنفيذ: `ab74cf94c16fa8f8ce7cabe613b7d0ee693b28f5`، رُفع إلى فرع
+  `feature/room-accounting-core` دون دمج.
+- GitHub Actions: نجح تشغيل push رقم `44645685355` وتشغيل pull request رقم
+  `44645692415`؛ بنى كل منهما APK، رفع الـArtifact، ونفذ فحوص المصدر واختبارات
+  JVM/Room مع تحقق أن عدد الاختبارات غير صفري وأن مجموعة Room لا تقل عن 16.
+
+## نتائج مراجعة الأمن
+
+| # | Severity | File | Lines | Vulnerability | Confidence |
+|---|----------|------|-------|---------------|------------|
+| 1 | 🟡 MEDIUM | `app/src/main/java/com/esmaeil/groceryapp/AppDatabase.java` | 46-50 | قاعدة Room تستخدم SQLite الافتراضي دون تشفير؛ قد تُقرأ البيانات عند استخراج ملف قاعدة البيانات عبر وصول محلي مرتفع الصلاحية. الخطر معروف ومفتوح، وليس إصلاحه آمنًا دون خطة ترحيل واختبار استعادة. | 10/10 |
+
+## الحالة والمخاطر المفتوحة
+
+- **تشفير قاعدة البيانات:** SQLCipher غير منفذ. بقي خطر عدم تشفير قاعدة Room
+  متوسطًا ومفتوحًا؛ لا يُوصى باستخدام التطبيق لبيانات تجارية حقيقية حتى تنفيذ
+  الترحيل الآمن واختبار الاستعادة. بقيت خطة الترحيل في
+  `ROOM_ENCRYPTION_MIGRATION_AR.md`.
+- **النسخ المحلي/المستقل:** الأرشيف المشفر AES-GCM اجتاز اختبارات الإنشاء
+  والتحقق من سلامة المحتوى ورفض العبث والاستعادة مع حفظ القاعدة السابقة.
+- **النسخ السحابي:** غير مفعّل ولا توجد خدمة أو عملية رفع بيانات.
+- **الاختبارات على جهاز Android:** بناء APK instrumentation نجح، لكن لم تُنفذ
+  اختبارات فعلية على محاكي أو جهاز؛ التحقق السلوكي الحالي عبر Robolectric.
+- **جاهزية الاستخدام التجاري:** غير معتمدة بسبب قاعدة Room غير المشفرة،
+  وغياب اختبار جهاز فعلي، وتحذيرات Lint المفتوحة.
+- **تحذيرات GitHub Actions:** ظهرت ملاحظات صيانة من GitHub بأن `setup-java@v4`
+  متقادم، وأن بعض الإجراءات تستخدم Node 20 الذي يجري فرض Node 24 عليه. لم تفشل
+  هذه الملاحظات البناء أو الاختبارات.

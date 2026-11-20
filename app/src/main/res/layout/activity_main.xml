@@ -1,16 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
+    android:fillViewport="true"
     android:background="#F5F5F5">
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
 
     <!-- رأس التطبيق -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="محاسبة بقالتي 2.0"
+        android:text="محاسبة بقالتي"
         android:textSize="22sp"
         android:textStyle="bold"
         android:textColor="#FFFFFF"
@@ -31,7 +36,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="الصندوق: 0 ر.ي"
+            android:text="تحصيلات البيع النقدي: غير متاح"
             android:textSize="16sp"
             android:textStyle="bold"
             android:padding="12dp"
@@ -44,7 +49,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="مبيعات اليوم: 0 ر.ي"
+            android:text="مبيعات اليوم: غير متاح"
             android:textSize="16sp"
             android:textStyle="bold"
             android:padding="12dp"
@@ -53,11 +58,12 @@
     </LinearLayout>
 
     <!-- حقول إدخال عملية البيع -->
-    <EditText
+    <AutoCompleteTextView
         android:id="@+id/etItemSearch"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="بحث عن صنف (مثال: أرز، سكر)..."
+        android:completionThreshold="1"
         android:padding="12dp"
         android:layout_marginBottom="12dp"
         android:background="#FFFFFF"/>
@@ -72,16 +78,63 @@
         android:layout_marginBottom="16dp"
         android:background="#FFFFFF"/>
 
+    <Button
+        android:id="@+id/btnAddSaleLine"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="إضافة الصنف إلى الفاتورة"/>
+
+    <TextView
+        android:id="@+id/tvSaleCart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="لم تُضف أصناف إلى الفاتورة"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp"/>
+
     <!-- زر تنفيذ البيع -->
     <Button
         android:id="@+id/btnExecuteSale"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="إتمام وتنفيذ البيع وتحديث المؤشرات"
+        android:text="بيع نقدي"
         android:backgroundTint="#2E7D32"
         android:textColor="#FFFFFF"
         android:padding="12dp"
         android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/btnCreditSale"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="بيع آجل"
+        android:backgroundTint="#EF6C00"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/btnManageInventory"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="إدارة الأصناف والمخزون"/>
+
+    <Button
+        android:id="@+id/btnManagePartners"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="إدارة العملاء والموردين"/>
+
+    <Button
+        android:id="@+id/btnAccountingOperations"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="المشتريات والتحصيلات والمصروفات والمرتجعات"/>
+
+    <Button
+        android:id="@+id/btnManageUsers"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="إنشاء مدير أو كاشير"/>
 
     <!-- الأزرار الإضافية التي تطابق البرمجة تماماً -->
     <LinearLayout
@@ -94,7 +147,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="طباعة كشف الحساب"
+            android:text="سجل الفواتير"
             android:backgroundTint="#424242"
             android:textColor="#FFFFFF"
             android:layout_marginEnd="8dp"/>
@@ -104,9 +157,41 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="مشاركة تقرير اليوم"
+            android:text="تصدير الأرشيف القديم المحفوظ"
             android:backgroundTint="#1976D2"
             android:textColor="#FFFFFF"/>
     </LinearLayout>
 
+    <Button
+        android:id="@+id/btnImportLegacy"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="استيراد نسخة HTML القديمة (JSON)"
+        android:layout_marginTop="8dp"/>
+
+    <Button
+        android:id="@+id/btnRoomBackup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="نسخ Room مشفر واستعادة آمنة"
+        android:layout_marginTop="8dp"/>
+
+    <Button
+        android:id="@+id/btnAbout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="حول التطبيق"
+        android:textColor="#424242"
+        android:backgroundTint="#E0E0E0"
+        android:layout_marginTop="8dp" />
+
+    <Button
+        android:id="@+id/btnLogout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="تسجيل الخروج"
+        android:layout_marginTop="8dp" />
+
 </LinearLayout>
+</ScrollView>

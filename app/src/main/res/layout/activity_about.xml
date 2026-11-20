@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5F5"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="حول التطبيق"
+            android:textColor="#2E7D32"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <TextView
+            android:id="@+id/tvAboutAppName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#212121"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:id="@+id/tvAboutOwner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#424242"
+            android:textSize="16sp"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:id="@+id/tvAboutDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#424242"
+            android:textSize="16sp"
+            android:layout_marginBottom="18dp" />
+
+        <TextView
+            android:id="@+id/tvAboutVersion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#616161"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tvAboutReleaseDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#616161"
+            android:layout_marginBottom="18dp" />
+
+        <TextView
+            android:id="@+id/tvAboutContact"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#616161"
+            android:layout_marginBottom="18dp" />
+
+        <TextView
+            android:id="@+id/tvAboutCopyright"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#757575"
+            android:textSize="13sp"
+            android:paddingTop="16dp" />
+
+    </LinearLayout>
+</ScrollView>

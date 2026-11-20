@@ -1,31 +1,93 @@
-محاسبة بقالتي 1.5.6 — حالة التسليم الهندسي
+تقرير التنفيذ والتحقق — محاسبة بقالتي
+تاريخ التحقق المحلي: 2026-11-20
+الفرع: feature/room-accounting-core
 
-نوع الحزمة: مشروع Android المصدر، وليس APK.
+1) نتيجة البناء والاختبارات المحلية
+- نجح تنفيذ:
+  ./gradlew --no-daemon clean check assembleDebug assembleDebugAndroidTest
+- اجتاز فحص المصدر:
+  python3 check-project.py
+- اجتاز التغيير فحص المسافات:
+  git diff --check
+- اختبارات JVM في Debug: 25 منفذة، 25 ناجحة، 0 فاشلة، 0 متخطاة.
+- اختبارات JVM في Release: 25 منفذة، 25 ناجحة، 0 فاشلة، 0 متخطاة.
+- اختبارات RoomPersistenceTest: 19 منفذة وناجحة في كل من Debug وRelease.
+- فُحص APK المحلي بـ apksigner verify ونجح التحقق من التوقيع. حجم الملف
+  7,119,528 بايت، وSHA-256:
+  be82e8e68b2fd4b3c3239ef2b1dd25fd76df579f9446b05b037717bdf46e2423
+- تم بناء حزمة Android الاختبارية (assembleDebugAndroidTest)، لكن لم تُشغّل
+  اختبارات Instrumentation على جهاز/محاكي.
+- GitHub Actions للـcommit e68dfae: نجاح، وتضمن بناء APK والتحقق من وجوده
+  ورفعه، ثم فحص المصدر وتشغيل Gradle check. سجل التشغيل:
+  https://github.com/esmaeil201799-ops/Mohasabat-Bagalati/actions/runs/44682298104
+- نتائج CI الفعلية: 25 اختبار JVM، 0 فشل، 0 أخطاء، 0 تخطي؛ منها 19 اختبار
+  RoomPersistenceTest، ونجح Gradle check.
 
-الموجود:
-- واجهة التطبيق داخل app/src/main/assets/index.html
-- تطبيق Android Java وملف AndroidManifest
-- إعدادات Gradle واعتماد AndroidX WebKit
-- GitHub Actions workflow لبناء Debug APK
-- دليل تسليم هندسي عربي وتعليمات بناء واختبار
+2) الإصلاحات والوظائف المنفذة
+- إضافة صنف مع الباركود والعملة وسعر البيع، وكمية/تكلفة افتتاحية اختيارية؛
+  إنشاء الصنف وإثبات مخزونه الافتتاحي يتمان ذريًا في Room مع قيد متوازن
+  وتدقيق ومنع تكرار.
+- إضافة نموذج إثبات مخزون افتتاحي لاحقًا مع تحديث متوسط التكلفة المرجح وحركة
+  مخزون وقيد محاسبي متوازن.
+- إضافة مسح باركود بالكاميرا واختيار هاتف عميل/مورد من منتقي جهات الاتصال.
+  أضيف إذن الكاميرا، مع إعلان أن الكاميرا اختيارية. لم يتطلب المنتقي صلاحية
+  قراءة جهات الاتصال العامة.
+- فصل اختيار إدارة العملاء عن الموردين.
+- دعم سلة بيع متعددة الأصناف والدفع الكامل أو الجزئي أو الآجل. رُبطت العملية
+  بمعاملة Room واحدة تشمل الفاتورة والأسطر والمخزون والصندوق والذمم والقيد
+  والتدقيق ومنع التكرار. رُفض خلط عملتين في الفاتورة الواحدة.
+- إضافة إثبات أرصدة افتتاحية للصندوق بالعملتين YER وSAR، ولذمم العملاء
+  والموردين مع قيود متوازنة وفواتير قابلة للتحصيل/السداد.
+- إظهار الفواتير ذات الأرصدة المستحقة، بما فيها الأرصدة الافتتاحية، من خلال
+  استعلام Room مخصص دون حدّ أحدث 100 فاتورة.
+- اختُبر شراء المورد الآجل دون اشتراط رصيد صندوق، كما اختُبرت عمليات البيع
+  متعددة الأصناف والجزئية والأرصدة الافتتاحية والتسوية ومنع التكرار.
 
-إعداد البناء:
-- JDK 17
-- Gradle 8.9
-- Android SDK Platform 35 / Build Tools 35.0.0
-- applicationId: com.esmaeil.groceryapp
-- versionName: 1.5.6 / versionCode: 156
+3) ملفات المشروع المعدلة
+- .github/workflows/build-apk.yml
+- app/build.gradle
+- app/src/main/AndroidManifest.xml
+- app/src/main/java/com/esmaeil/groceryapp/AccountingOperationsActivity.java
+- app/src/main/java/com/esmaeil/groceryapp/ErpDao.java
+- app/src/main/java/com/esmaeil/groceryapp/InventoryService.java
+- app/src/main/java/com/esmaeil/groceryapp/MainActivity.java
+- app/src/main/java/com/esmaeil/groceryapp/OpeningBalanceService.java (جديد)
+- app/src/main/java/com/esmaeil/groceryapp/PaymentService.java
+- app/src/main/java/com/esmaeil/groceryapp/SaleService.java
+- app/src/main/res/layout/activity_accounting_operations.xml
+- app/src/main/res/layout/activity_main.xml
+- app/src/test/java/com/esmaeil/groceryapp/RoomPersistenceTest.java
+- check-project.py
+- BUILD_STATUS_AR.txt
 
-الفحوصات الساكنة السابقة: ZIP سليم، check-project.py ناجح، Manifest XML صالح، كتل JavaScript ناجحة في node --check، ولا توجد معرفات HTML مكررة.
+4) حدود التحقق
+- لم يظهر ملف تقرير النسخة التجريبية المرفق في مساحة العمل؛ نُفذت البنود
+  الواردة في طلب المستخدم مباشرة.
+- لم يُختبر مسح الكاميرا أو اختيار جهات الاتصال أو تشغيل الواجهة على جهاز حي.
+  تعذر تشغيل محاكي Codespaces لعدم توفر KVM؛ لذلك لا يُدّعى نجاح اختبار تشغيل
+  حي أو دورة واجهة كاملة.
+- يجري اختبار Room عبر Robolectric واختبارات JVM؛ نجاحه لا يثبت اختبار
+  Instrumentation على جهاز.
+- يتضمن lintDebug 66 تحذيرًا قائمًا؛ لم تُخفَ التحذيرات. لا توجد إخفاقات بناء
+  بسببها.
+- أصدر GitHub Actions تحذير تقادم متعلقًا بـ Node.js 20 واستخدام
+  setup-java@v4 (يوصي GitHub بالترقية إلى v5)؛ لم يمنع نجاح التشغيل.
+- اكتمل apksigner verify، وأكد التحقق باستخدام v1 وv2. أبلغ أيضًا أن بعض
+  مدخلات META-INF غير مغطاة بتوقيع JAR/v1؛ توقيع APK v2 تحقق بنجاح، لكن
+  التحذير محفوظ هنا ولا يُخفى.
+- لا يزال مخطط Room كما هو؛ لم يُنفذ ترحيل SQLCipher أو أي ترحيل لقاعدة البيانات.
+- خطر عدم تشفير SQLite/Room قياسيًا ما زال MEDIUM ومفتوحًا ومؤجلًا؛ لا تستخدم
+  بيانات تجارية حقيقية قبل تنفيذ ترحيل تشفير واستعادة آمنين والتحقق منهما.
+- لم تُرسل بيانات إلى خدمات خارجية، ولم تُفعّل مزامنة سحابية.
 
-غير المنفذ/غير المثبت:
-- لا يوجد APK ضمن هذه الحزمة.
-- لم يُنفذ تجميع Gradle فعليًا.
-- لم يُختبر التطبيق على هاتف حقيقي.
-- لم يُختبر فعليًا حفظ البيانات بعد إعادة التشغيل أو وضع الطيران أو الكاميرا أو الاستيراد والاستعادة.
-- لا يوجد مفتاح توقيع Release.
-
-مسار البناء: .github/workflows/build-apk.yml
-المخرج المتوقع: app/build/outputs/apk/debug/app-debug.apk
-
-ملاحظة: هذه الحزمة جاهزة لتسليمها إلى مهندس Android لفتح المشروع وبنائه، لكنها لا تمثل شهادة اجتياز اختبارات تشغيلية.
+5) حالة التسليم
+- APK Debug المحلي: بُني واكتمل التحقق من توقيعه؛ 7,119,528 بايت،
+  SHA-256:
+  be82e8e68b2fd4b3c3239ef2b1dd25fd76df579f9446b05b037717bdf46e2423
+- Artifact الذي أنتجه CI ورُفع بنجاح: Mohasabat-Bagalati-debug-apk /
+  app-debug.apk، حجمه 7,119,523 بايت، SHA-256:
+  f2cb51b6876131bed7697116232a54062aefad959269d4183fe42bcd94db31d4
+  رابط تنزيله من صفحة التشغيل:
+  https://github.com/esmaeil201799-ops/Mohasabat-Bagalati/actions/runs/44682298104
+- لم يُختبر تثبيت APK أو تشغيله على جهاز فعلي.
+- لم يُدمج أي تغيير في main، ولم تُحذف قاعدة بيانات أو بيانات أو ملفات أساسية.

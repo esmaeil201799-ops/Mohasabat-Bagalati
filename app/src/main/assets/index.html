@@ -241,6 +241,15 @@
     <script>
         function getData(key) { return JSON.parse(localStorage.getItem(key) || '[]'); }
         function saveData(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[character]);
+        }
 
         function logAudit(action, details, amount) {
             let audit = getData('audit_log');
@@ -262,11 +271,16 @@
 
         function addInventoryItem() {
             let name = document.getElementById('invName').value.trim();
-            let buy = parseFloat(document.getElementById('invBuyPrice').value);
-            let sell = parseFloat(document.getElementById('invSellPrice').value);
-            let qty = parseInt(document.getElementById('invQty').value);
+            let buyInput = document.getElementById('invBuyPrice').value.trim();
+            let sellInput = document.getElementById('invSellPrice').value.trim();
+            let qtyInput = document.getElementById('invQty').value.trim();
+            let buy = Number(buyInput);
+            let sell = Number(sellInput);
+            let qty = Number(qtyInput);
 
-            if (!name || isNaN(buy) || isNaN(sell) || isNaN(qty)) {
+            if (!name || !buyInput || !sellInput || !qtyInput
+                    || !Number.isFinite(buy) || !Number.isFinite(sell)
+                    || !Number.isSafeInteger(qty) || buy < 0 || sell <= 0 || qty < 0) {
                 alert('الرجاء إدخال كافة بيانات الصنف بشكل صحيح');
                 return;
             }
@@ -285,32 +299,52 @@
         }
 
         function deleteInventoryItem(id) {
+            id = Number(id);
+            if (!Number.isSafeInteger(id)) return;
             if (!confirm('هل أنت متأكد من حذف هذا الصنف؟')) return;
-            let inventory = getData('inventory').filter(item => item.id !== id);
+            let inventory = getData('inventory').filter(item => Number(item.id) !== id);
             saveData('inventory', inventory);
             refreshAllData();
         }
 
         function recordSale() {
-            let itemId = parseInt(document.getElementById('saleItemSelect').value);
-            let qty = parseInt(document.getElementById('saleQty').value);
+            let itemId = Number(document.getElementById('saleItemSelect').value);
+            let qty = Number(document.getElementById('saleQty').value);
             let type = document.getElementById('saleType').value;
             let debtorName = document.getElementById('saleDebtorName').value.trim();
 
             let inventory = getData('inventory');
-            let item = inventory.find(i => i.id === itemId);
+            let item = inventory.find(i => Number(i.id) === itemId);
 
-            if (!item) {
+            if (!Number.isSafeInteger(itemId) || !item) {
                 alert('الرجاء اختيار صنف صحيح');
                 return;
             }
-            if (item.qty < qty) {
+            if (!Number.isSafeInteger(qty) || qty <= 0) {
+                alert('أدخل كمية صحيحة أكبر من صفر');
+                return;
+            }
+            if (!Number.isSafeInteger(item.qty) || item.qty < qty) {
                 alert('الكمية المطلوبة غير متوفرة في المخزون! المتبقي: ' + item.qty);
+                return;
+            }
+            if (!Number.isFinite(item.buy) || item.buy < 0
+                    || !Number.isFinite(item.sell) || item.sell <= 0
+                    || (type !== 'cash' && type !== 'debt')) {
+                alert('بيانات الصنف أو نوع البيع غير صالحة');
+                return;
+            }
+            if (type === 'debt' && !debtorName) {
+                alert('أدخل اسم العميل للبيع الآجل');
                 return;
             }
 
             let totalSale = item.sell * qty;
             let totalProfit = (item.sell - item.buy) * qty;
+            if (!Number.isFinite(totalSale) || !Number.isFinite(totalProfit)) {
+                alert('قيمة البيع تتجاوز النطاق المدعوم');
+                return;
+            }
 
             item.qty -= qty;
             saveData('inventory', inventory);
@@ -320,7 +354,6 @@
             saveData('sales', sales);
 
             if (type === 'debt') {
-                if (!debtorName) debtorName = 'عميل غير محدد';
                 let debts = getData('debts');
                 let debtor = debts.find(d => d.name === debtorName);
                 if (debtor) {
@@ -340,10 +373,10 @@
 
         function recordExpense() {
             let desc = document.getElementById('expDesc').value.trim();
-            let amount = parseFloat(document.getElementById('expAmount').value);
+            let amount = Number(document.getElementById('expAmount').value);
 
-            if (!desc || isNaN(amount)) {
-                alert('الرجاء إدخال بيان ومبلغ المصروف');
+            if (!desc || !Number.isFinite(amount) || amount <= 0) {
+                alert('أدخل بيانًا ومبلغًا موجبًا للمصروف');
                 return;
             }
 
@@ -360,17 +393,27 @@
 
         function payDebt(index) {
             let debts = getData('debts');
+            if (!Number.isSafeInteger(index) || !debts[index]
+                    || !Number.isFinite(debts[index].amount) || debts[index].amount <= 0) {
+                alert('الدين المحدد غير صالح');
+                return;
+            }
             let paid = prompt('أدخل المبلغ المدفوع من العميل (' + debts[index].name + '):', debts[index].amount);
             if (paid === null) return;
-            let paidAmount = parseFloat(paid);
-            if (isNaN(paidAmount) || paidAmount <= 0) return;
+            let paidAmount = Number(paid);
+            if (!Number.isFinite(paidAmount) || paidAmount <= 0
+                    || paidAmount > debts[index].amount) {
+                alert('أدخل مبلغًا موجبًا لا يتجاوز رصيد الدين');
+                return;
+            }
 
+            let debtorName = debts[index].name;
             debts[index].amount -= paidAmount;
             if (debts[index].amount <= 0) {
                 debts.splice(index, 1);
             }
             saveData('debts', debts);
-            logAudit('سداد دين', 'من العميل: ' + debts[index].name, paidAmount);
+            logAudit('سداد دين', 'من العميل: ' + debtorName, paidAmount);
             refreshAllData();
         }
 
@@ -382,8 +425,10 @@
 
             inventory.forEach(i => {
                 totalStockVal += (i.buy * i.qty);
-                invHtml += `<tr><td>${i.name}</td><td>${i.buy}</td><td>${i.sell}</td><td>${i.qty}</td><td><button class="action-btn btn-danger" style="padding:4px 8px;font-size:11px;" onclick="deleteInventoryItem(${i.id})">حذف</button></td></tr>`;
-                selectHtml += `<option value="${i.id}">${i.name} (متوفر: ${i.qty} - سعر: ${i.sell})</option>`;
+                let itemId = Number(i.id);
+                let safeItemId = Number.isSafeInteger(itemId) ? itemId : '';
+                invHtml += `<tr><td>${escapeHtml(i.name)}</td><td>${escapeHtml(i.buy)}</td><td>${escapeHtml(i.sell)}</td><td>${escapeHtml(i.qty)}</td><td><button class="action-btn btn-danger" style="padding:4px 8px;font-size:11px;" onclick="deleteInventoryItem(${safeItemId})">حذف</button></td></tr>`;
+                selectHtml += `<option value="${safeItemId}">${escapeHtml(i.name)} (متوفر: ${escapeHtml(i.qty)} - سعر: ${escapeHtml(i.sell)})</option>`;
             });
             document.getElementById('inventoryTableBody').innerHTML = invHtml || '<tr><td colspan="5">لا توجد أصناف</td></tr>';
             document.getElementById('saleItemSelect').innerHTML = selectHtml || '<option value="">لا توجد أصناف متاحة</option>';
@@ -395,7 +440,7 @@
             sales.forEach(s => {
                 todaySales += s.total;
                 todayProfit += s.profit;
-                salesHtml += `<tr><td>${s.itemName}</td><td>${s.qty}</td><td>${s.total}</td><td>${s.type === 'cash' ? 'نقداً' : 'آجل'}</td><td>${s.time}</td></tr>`;
+                salesHtml += `<tr><td>${escapeHtml(s.itemName)}</td><td>${escapeHtml(s.qty)}</td><td>${escapeHtml(s.total)}</td><td>${s.type === 'cash' ? 'نقداً' : 'آجل'}</td><td>${escapeHtml(s.time)}</td></tr>`;
             });
             document.getElementById('salesTableBody').innerHTML = salesHtml || '<tr><td colspan="5">لا توجد مبيعات مسجلة</td></tr>';
 
@@ -409,7 +454,7 @@
             let totalExp = 0;
             expenses.forEach(e => {
                 totalExp += e.amount;
-                expHtml += `<tr><td>${e.desc}</td><td>${e.amount}</td><td>${e.time}</td></tr>`;
+                expHtml += `<tr><td>${escapeHtml(e.desc)}</td><td>${escapeHtml(e.amount)}</td><td>${escapeHtml(e.time)}</td></tr>`;
             });
             document.getElementById('expensesTableBody').innerHTML = expHtml || '<tr><td colspan="3">لا توجد مصروفات</td></tr>';
             document.getElementById('lblTotalExpenses').innerText = totalExp + ' ر.ي';
@@ -419,7 +464,7 @@
             let totalDebts = 0;
             debts.forEach((d, idx) => {
                 totalDebts += d.amount;
-                debtsHtml += `<tr><td>${d.name}</td><td>${d.amount} ر.ي</td><td><button class="action-btn" style="padding:4px 8px;font-size:11px;" onclick="payDebt(${idx})">تسجيل سداد</button></td></tr>`;
+                debtsHtml += `<tr><td>${escapeHtml(d.name)}</td><td>${escapeHtml(d.amount)} ر.ي</td><td><button class="action-btn" style="padding:4px 8px;font-size:11px;" onclick="payDebt(${idx})">تسجيل سداد</button></td></tr>`;
             });
             document.getElementById('debtsTableBody').innerHTML = debtsHtml || '<tr><td colspan="3">لا توجد ديون مسجلة</td></tr>';
             document.getElementById('lblTotalDebts').innerText = totalDebts + ' ر.ي';
@@ -427,7 +472,7 @@
             let audit = getData('audit_log');
             let auditHtml = '';
             audit.forEach(a => {
-                auditHtml += `<tr><td><b>${a.action}</b></td><td>${a.details}</td><td>${a.amount} ر.ي</td><td>${a.time}</td></tr>`;
+                auditHtml += `<tr><td><b>${escapeHtml(a.action)}</b></td><td>${escapeHtml(a.details)}</td><td>${escapeHtml(a.amount)} ر.ي</td><td>${escapeHtml(a.time)}</td></tr>`;
             });
             document.getElementById('auditTableBody').innerHTML = auditHtml || '<tr><td colspan="4">لا توجد سجلات بعد</td></tr>';
         }
@@ -451,6 +496,31 @@
             downloadAnchor.remove();
         }
 
+        function mergeBackupRecords(existing, incoming) {
+            let merged = existing.slice();
+            let existingCounts = Object.create(null);
+            let incomingCounts = Object.create(null);
+            let added = 0;
+            function recordKey(record) {
+                return record && record.id !== undefined && record.id !== null
+                    ? 'id:' + String(record.id)
+                    : 'record:' + JSON.stringify(record);
+            }
+            existing.forEach(record => {
+                let key = recordKey(record);
+                existingCounts[key] = (existingCounts[key] || 0) + 1;
+            });
+            incoming.forEach(record => {
+                let key = recordKey(record);
+                incomingCounts[key] = (incomingCounts[key] || 0) + 1;
+                if (incomingCounts[key] > (existingCounts[key] || 0)) {
+                    merged.push(record);
+                    added++;
+                }
+            });
+            return { records: merged, added };
+        }
+
         function importBackup(event) {
             let file = event.target.files[0];
             if (!file) return;
@@ -458,16 +528,48 @@
             reader.onload = function(e) {
                 try {
                     let json = JSON.parse(e.target.result);
-                    if (json.inventory) saveData('inventory', json.inventory);
-                    if (json.sales) saveData('sales', json.sales);
-                    if (json.expenses) saveData('expenses', json.expenses);
-                    if (json.debts) saveData('debts', json.debts);
-                    if (json.audit_log) saveData('audit_log', json.audit_log);
-                    alert('تمت استعادة النسخة الاحتياطية بنجاح!');
+                    let datasets = ['inventory', 'sales', 'expenses', 'debts', 'audit_log'];
+                    let updates = {};
+                    let summary = [];
+                    datasets.forEach(key => {
+                        if (!Object.prototype.hasOwnProperty.call(json, key)) return;
+                        if (!Array.isArray(json[key])) {
+                            throw new Error('بيانات ' + key + ' ليست قائمة صالحة');
+                        }
+                        let existing = getData(key);
+                        let merged = mergeBackupRecords(existing, json[key]);
+                        updates[key] = { previous: localStorage.getItem(key), records: merged.records };
+                        summary.push(key + ': قبل ' + existing.length + '، أضيف '
+                            + merged.added + '، بعد ' + merged.records.length);
+                    });
+                    if (!window.confirm('سيُدمج الملف دون حذف بيانات موجودة أو تكرار السجلات المعروفة.\n'
+                            + summary.join('\n') + '\nمتابعة؟')) {
+                        return;
+                    }
+                    try {
+                        Object.keys(updates).forEach(key => saveData(key, updates[key].records));
+                    } catch (writeError) {
+                        Object.keys(updates).forEach(key => {
+                            if (updates[key].previous === null) {
+                                localStorage.removeItem(key);
+                            } else {
+                                localStorage.setItem(key, updates[key].previous);
+                            }
+                        });
+                        throw writeError;
+                    }
+                    alert('اكتمل الدمج الإضافي:\n' + summary.join('\n'));
                     refreshAllData();
                 } catch (err) {
-                    alert('ملف النسخة الاحتياطية غير صالح!');
+                    alert('تعذر استيراد الملف مع الحفاظ على البيانات الحالية: '
+                        + (err.message || 'خطأ غير معروف'));
+                } finally {
+                    event.target.value = '';
                 }
+            };
+            reader.onerror = function() {
+                alert('تعذر قراءة ملف النسخة الاحتياطية؛ لم تتغير البيانات الحالية.');
+                event.target.value = '';
             };
             reader.readAsText(file);
         }
