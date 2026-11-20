@@ -40,7 +40,10 @@ for test_name in ('migrationFromVersionSixAddsLogicalDeleteWithoutChangingExisti
                   'saleReturnRestocksOnceRefundsCashAndRejectsExcessQuantity',
                   'purchaseReturnReducesStockAndSupplierBalanceWithBalancedJournal',
                   'purchasePaymentsAndCreditReceiptsUpdateBalancesExactlyOnce',
-                  'operatingExpensesAndOwnerWithdrawalsRemainDistinct'):
+                  'operatingExpensesAndOwnerWithdrawalsRemainDistinct',
+                  'multiItemPartialSaleUpdatesEachStockCashCustomerAndJournalOnce',
+                  'openingBalancesAndNewItemsPostBalancedEntriesAndSettleNormally',
+                  'supplierCreditPurchaseDoesNotRequireOpeningCash'):
     assert test_name in room_test_source, f'{test_name} test missing'
 
 ids = re.findall(r'\bid=["\']([^"\']+)["\']', s)

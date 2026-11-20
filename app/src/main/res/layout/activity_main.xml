@@ -78,6 +78,20 @@
         android:layout_marginBottom="16dp"
         android:background="#FFFFFF"/>
 
+    <Button
+        android:id="@+id/btnAddSaleLine"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="إضافة الصنف إلى الفاتورة"/>
+
+    <TextView
+        android:id="@+id/tvSaleCart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="لم تُضف أصناف إلى الفاتورة"
+        android:padding="12dp"
+        android:layout_marginBottom="12dp"/>
+
     <!-- زر تنفيذ البيع -->
     <Button
         android:id="@+id/btnExecuteSale"

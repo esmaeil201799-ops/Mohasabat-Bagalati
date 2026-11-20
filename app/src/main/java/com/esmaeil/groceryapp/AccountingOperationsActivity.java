@@ -41,6 +41,7 @@ public final class AccountingOperationsActivity extends AppCompatActivity {
         findViewById(R.id.btnPostExpense).setOnClickListener(v -> showExpenseForm());
         findViewById(R.id.btnPostReturn).setOnClickListener(v -> showReturnTypePicker());
         findViewById(R.id.btnOwnerWithdrawal).setOnClickListener(v -> showWithdrawalTypePicker());
+        findViewById(R.id.btnOpeningBalances).setOnClickListener(v -> showOpeningBalanceForm());
         findViewById(R.id.btnOperationsDone).setOnClickListener(v -> finish());
     }
 
@@ -198,9 +199,10 @@ public final class AccountingOperationsActivity extends AppCompatActivity {
                 SessionManager.require(database, receipt
                         ? SessionManager.Permission.RECEIVE_PAYMENT
                         : SessionManager.Permission.PAY_SUPPLIER);
-                List<Invoice> invoices = database.erpDao().getRecentInvoicesByTypes(receipt
-                        ? Arrays.asList("SALE_CASH", "SALE_CREDIT")
-                        : Arrays.asList("PURCHASE"));
+                List<Invoice> invoices = database.erpDao().getOutstandingInvoicesByTypes(receipt
+                        ? Arrays.asList("SALE_CASH", "SALE_CREDIT",
+                                OpeningBalanceService.CUSTOMER_RECEIVABLE)
+                        : Arrays.asList("PURCHASE", OpeningBalanceService.SUPPLIER_PAYABLE));
                 ArrayList<Invoice> outstanding = new ArrayList<>();
                 for (Invoice invoice : invoices) {
                     if (invoice.total > invoice.paid + invoice.returnedAmount) {
@@ -341,6 +343,140 @@ public final class AccountingOperationsActivity extends AppCompatActivity {
                     });
                 }));
         dialog.show();
+    }
+
+    private void showOpeningBalanceForm() {
+        new AlertDialog.Builder(this)
+                .setTitle("نوع الرصيد الافتتاحي")
+                .setItems(new String[]{"صندوق YER", "صندوق SAR", "ذمم عميل", "ذمم مورد"},
+                        (dialog, which) -> {
+                            if (which == 0 || which == 1) {
+                                showOpeningCashForm(which == 0
+                                        ? MoneyCurrency.YER : MoneyCurrency.SAR);
+                            } else if (which == 2) {
+                                showPartnerOpeningBalanceForm(
+                                        OpeningBalanceService.CUSTOMER_RECEIVABLE);
+                            } else {
+                                showPartnerOpeningBalanceForm(
+                                        OpeningBalanceService.SUPPLIER_PAYABLE);
+                            }
+                        })
+                .setNegativeButton("إغلاق", null)
+                .show();
+    }
+
+    private void showOpeningCashForm(String currencyCode) {
+        EditText amount = new EditText(this);
+        amount.setHint("المبلغ الافتتاحي " + currencyCode);
+        amount.setInputType(InputType.TYPE_CLASS_NUMBER);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("رصيد صندوق افتتاحي")
+                .setView(amount)
+                .setNegativeButton("إلغاء", null)
+                .setPositiveButton("ترحيل", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(view -> {
+                    long value;
+                    try {
+                        value = parsePositive(amount.getText().toString());
+                    } catch (IllegalArgumentException exception) {
+                        showMessage(exception.getMessage());
+                        return;
+                    }
+                    String fingerprint = currencyCode + "|" + value;
+                    String operationKey = pendingKey("opening-cash", fingerprint);
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+                    databaseExecutor.execute(() -> {
+                        try {
+                            new CashOpeningService(database).postOpeningCash(
+                                    value, currencyCode, operationKey);
+                            runOnUiThread(() -> {
+                                clearPendingKey("opening-cash", operationKey);
+                                dialog.dismiss();
+                                showMessage("تم ترحيل رصيد الصندوق الافتتاحي");
+                            });
+                        } catch (RuntimeException exception) {
+                            showError("لم يُرحّل رصيد الصندوق الافتتاحي", exception);
+                            runOnUiThread(() -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                                    .setEnabled(true));
+                        }
+                    });
+                }));
+        dialog.show();
+    }
+
+    private void showPartnerOpeningBalanceForm(String balanceType) {
+        String partnerType = OpeningBalanceService.CUSTOMER_RECEIVABLE.equals(balanceType)
+                ? BusinessPartner.TYPE_CUSTOMER : BusinessPartner.TYPE_SUPPLIER;
+        databaseExecutor.execute(() -> {
+            try {
+                SessionManager.require(database, SessionManager.Permission.MANAGE_PARTNERS);
+                List<BusinessPartner> partners = partnerType.equals(BusinessPartner.TYPE_CUSTOMER)
+                        ? database.erpDao().getCustomers() : database.erpDao().getSuppliers();
+                runOnUiThread(() -> {
+                    if (partners.isEmpty()) {
+                        showMessage(partnerType.equals(BusinessPartner.TYPE_CUSTOMER)
+                                ? "أضف عميلًا أولًا" : "أضف موردًا أولًا");
+                        return;
+                    }
+                    LinearLayout form = createForm();
+                    ArrayList<String> labels = new ArrayList<>();
+                    for (BusinessPartner partner : partners) {
+                        labels.add(partner.name);
+                    }
+                    Spinner partner = spinner(form, labels);
+                    Spinner currency = spinner(form, MoneyCurrency.all());
+                    EditText amount = addField(form, "الرصيد الافتتاحي (أصغر وحدة نقدية)", true);
+                    AlertDialog dialog = new AlertDialog.Builder(this)
+                            .setTitle(partnerType.equals(BusinessPartner.TYPE_CUSTOMER)
+                                    ? "ذمم عميل افتتاحية" : "ذمم مورد افتتاحية")
+                            .setView(form)
+                            .setNegativeButton("إلغاء", null)
+                            .setPositiveButton("ترحيل", null)
+                            .create();
+                    dialog.setOnShowListener(ignored -> dialog
+                            .getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+                                long value;
+                                try {
+                                    value = parsePositive(amount.getText().toString());
+                                } catch (IllegalArgumentException exception) {
+                                    showMessage(exception.getMessage());
+                                    return;
+                                }
+                                BusinessPartner selected = partners.get(
+                                        partner.getSelectedItemPosition());
+                                String code = currency.getSelectedItem().toString();
+                                String fingerprint = selected.partnerId + "|" + balanceType
+                                        + "|" + value + "|" + code;
+                                String operationKey = pendingKey("opening-partner", fingerprint);
+                                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
+                                databaseExecutor.execute(() -> {
+                                    try {
+                                        Invoice invoice = new OpeningBalanceService(database)
+                                                .postPartnerBalance(selected.partnerId,
+                                                        balanceType, value, code, operationKey);
+                                        boolean cleared = clearPendingKey(
+                                                "opening-partner", operationKey);
+                                        runOnUiThread(() -> {
+                                            dialog.dismiss();
+                                            showMessage("تم ترحيل الرصيد الافتتاحي "
+                                                    + invoice.invoiceId
+                                                    + (cleared ? "" : "؛ حُفظ مفتاح منع التكرار"));
+                                        });
+                                    } catch (RuntimeException exception) {
+                                        showError("لم يُرحّل رصيد الشريك الافتتاحي", exception);
+                                        runOnUiThread(() -> dialog.getButton(
+                                                AlertDialog.BUTTON_POSITIVE).setEnabled(true));
+                                    }
+                                });
+                            }));
+                    dialog.show();
+                });
+            } catch (RuntimeException exception) {
+                showError("تعذر تحميل الشركاء للأرصدة الافتتاحية", exception);
+            }
+        });
     }
 
     private void showReturnTypePicker() {

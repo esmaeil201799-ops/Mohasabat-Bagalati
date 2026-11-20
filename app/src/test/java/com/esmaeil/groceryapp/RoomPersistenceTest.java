@@ -32,7 +32,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 @RunWith(RobolectricTestRunner.class)
@@ -528,6 +530,124 @@ public class RoomPersistenceTest {
     }
 
     @Test
+    public void multiItemPartialSaleUpdatesEachStockCashCustomerAndJournalOnce() {
+        AppDatabase database = openDatabase();
+        try {
+            establishOwner(database);
+            insertInventoryItem(database, "multi-sale-first", 5, 20, 50);
+            insertInventoryItem(database, "multi-sale-second", 4, 40, 100);
+            List<SaleService.SaleLine> lines = Arrays.asList(
+                    new SaleService.SaleLine("multi-sale-first", 2),
+                    new SaleService.SaleLine("multi-sale-second", 1));
+
+            SaleService service = new SaleService(database);
+            Invoice sale = service.postSale(lines, 70, "عميل بيع جزئي",
+                    MoneyCurrency.YER, "multi-sale-partial");
+
+            assertEquals("SALE_CREDIT", sale.type);
+            assertEquals("PARTIAL", sale.paymentStatus);
+            assertEquals(200L, sale.total);
+            assertEquals(70L, sale.paid);
+            assertNotNull(database.erpDao().getPartner(sale.partnerId));
+            assertEquals(3L, database.inventoryDao().getItem("multi-sale-first").quantity);
+            assertEquals(3L, database.inventoryDao().getItem("multi-sale-second").quantity);
+            assertEquals(2, database.erpDao().getInvoiceLines(sale.invoiceId).size());
+            assertEquals(70L, database.erpDao().getCashBalance(MoneyCurrency.YER));
+            assertEquals(1, countRows(database, "payments"));
+            assertBalancedJournal(database, sale.journalEntryId);
+
+            Invoice repeated = service.postSale(lines, 70, "عميل بيع جزئي",
+                    MoneyCurrency.YER, "multi-sale-partial");
+            assertEquals(sale.invoiceId, repeated.invoiceId);
+            assertEquals(3L, database.inventoryDao().getItem("multi-sale-first").quantity);
+            assertEquals(1, countRows(database, "invoices"));
+            assertEquals(1, countRows(database, "payments"));
+        } finally {
+            database.close();
+        }
+    }
+
+    @Test
+    public void openingBalancesAndNewItemsPostBalancedEntriesAndSettleNormally() {
+        AppDatabase database = openDatabase();
+        try {
+            establishOwner(database);
+            new CashOpeningService(database).postOpeningCash(
+                    300, MoneyCurrency.YER, "opening-full-cash");
+
+            InventoryItem item = new InventoryItem();
+            item.itemId = "opening-created-item";
+            item.itemName = "Opening created item";
+            item.sellingPrice = 80;
+            new InventoryService(database).createItem(
+                    item, 3, 20, "opening-created-item-once");
+            assertEquals(3L, database.inventoryDao().getItem(item.itemId).quantity);
+            assertEquals(20L, database.inventoryDao().getItem(item.itemId).purchasePriceAverage);
+            new InventoryService(database).createItem(
+                    item, 3, 20, "opening-created-item-once");
+            assertEquals(1, countRows(database, "inventory_items"));
+            assertEquals(1, countRows(database, "stock_movements"));
+
+            BusinessPartner customer = createPartner(database,
+                    "opening-customer", BusinessPartner.TYPE_CUSTOMER);
+            BusinessPartner supplier = createPartner(database,
+                    "opening-supplier", BusinessPartner.TYPE_SUPPLIER);
+            OpeningBalanceService openingBalances = new OpeningBalanceService(database);
+            Invoice receivable = openingBalances.postPartnerBalance(customer.partnerId,
+                    OpeningBalanceService.CUSTOMER_RECEIVABLE, 150,
+                    MoneyCurrency.YER, "opening-customer-balance");
+            Invoice payable = openingBalances.postPartnerBalance(supplier.partnerId,
+                    OpeningBalanceService.SUPPLIER_PAYABLE, 200,
+                    MoneyCurrency.YER, "opening-supplier-balance");
+            assertEquals(1, database.erpDao().getOutstandingInvoicesByTypes(
+                    Collections.singletonList(OpeningBalanceService.CUSTOMER_RECEIVABLE)).size());
+            assertEquals(1, database.erpDao().getOutstandingInvoicesByTypes(
+                    Collections.singletonList(OpeningBalanceService.SUPPLIER_PAYABLE)).size());
+            assertBalancedJournal(database, receivable.journalEntryId);
+            assertBalancedJournal(database, payable.journalEntryId);
+
+            Payment receipt = new PaymentService(database).postCustomerReceipt(
+                    receivable.invoiceId, 50, "opening-customer-receipt");
+            Payment payment = new PaymentService(database).postSupplierPayment(
+                    payable.invoiceId, 80, "opening-supplier-payment");
+            assertEquals(100L, database.erpDao().getInvoice(receivable.invoiceId).total
+                    - database.erpDao().getInvoice(receivable.invoiceId).paid);
+            assertEquals(120L, database.erpDao().getInvoice(payable.invoiceId).total
+                    - database.erpDao().getInvoice(payable.invoiceId).paid);
+            assertEquals(270L, database.erpDao().getCashBalance(MoneyCurrency.YER));
+            assertBalancedJournal(database, receipt.journalEntryId);
+            assertBalancedJournal(database, payment.journalEntryId);
+        } finally {
+            database.close();
+        }
+    }
+
+    @Test
+    public void supplierCreditPurchaseDoesNotRequireOpeningCash() {
+        AppDatabase database = openDatabase();
+        try {
+            establishOwner(database);
+            insertInventoryItem(database, "credit-only-purchase-item", 0, 0, 100);
+            BusinessPartner supplier = createPartner(database,
+                    "credit-only-supplier", BusinessPartner.TYPE_SUPPLIER);
+
+            Invoice purchase = new PurchaseService(database).postPurchase(
+                    supplier.partnerId,
+                    Collections.singletonList(new PurchaseService.PurchaseLine(
+                            "credit-only-purchase-item", 4, 25)),
+                    0, 0, MoneyCurrency.YER, "credit-only-purchase");
+
+            assertEquals(0L, database.erpDao().getCashBalance(MoneyCurrency.YER));
+            assertEquals("UNPAID", purchase.paymentStatus);
+            assertEquals(4L, database.inventoryDao()
+                    .getItem("credit-only-purchase-item").quantity);
+            assertBalancedJournal(database, purchase.journalEntryId);
+        } finally {
+            database.close();
+        }
+    }
+
+    @Test
     public void operatingExpensesAndOwnerWithdrawalsRemainDistinct() {
         AppDatabase database = openDatabase();
         try {
@@ -716,6 +836,16 @@ public class RoomPersistenceTest {
         item.purchasePriceAverage = cost;
         item.sellingPrice = sellingPrice;
         database.inventoryDao().insertItem(item);
+    }
+
+    private static BusinessPartner createPartner(AppDatabase database, String id, String type) {
+        BusinessPartner partner = new BusinessPartner();
+        partner.partnerId = id;
+        partner.name = id;
+        partner.type = type;
+        partner.createdAt = System.currentTimeMillis();
+        database.erpDao().insertPartner(partner);
+        return partner;
     }
 
     private static int countRows(AppDatabase database, String table) {

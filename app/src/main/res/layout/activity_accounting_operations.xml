@@ -30,6 +30,12 @@
             android:text="فاتورة شراء من مورد" />
 
         <Button
+            android:id="@+id/btnOpeningBalances"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="الأرصدة الافتتاحية للصندوق والعملاء والموردين" />
+
+        <Button
             android:id="@+id/btnReceiveCustomer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

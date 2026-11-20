@@ -76,8 +76,8 @@ jobs:
                   room_tests += int(root.get("tests", "0"))
 
           print(f"JVM tests: {totals}; RoomPersistenceTest executed: {room_tests}")
-          if totals["tests"] == 0 or room_tests < 16:
-              raise SystemExit("Expected nonzero JVM coverage including all Room persistence tests")
+          if totals["tests"] == 0 or room_tests < 19:
+              raise SystemExit("Expected JVM coverage including all 19 Room persistence tests")
           if totals["failures"] or totals["errors"]:
               raise SystemExit("One or more JVM tests failed")
           PY

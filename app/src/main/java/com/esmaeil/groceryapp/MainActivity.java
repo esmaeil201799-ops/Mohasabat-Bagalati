@@ -2,11 +2,13 @@ package com.esmaeil.groceryapp;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -17,10 +19,15 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.Spinner;
 
+import android.provider.ContactsContract;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.zxing.integration.android.IntentIntegrator;
+import com.google.zxing.integration.android.IntentResult;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -41,16 +48,24 @@ public class MainActivity extends AppCompatActivity {
 
     private final ExecutorService databaseExecutor = Executors.newSingleThreadExecutor();
     private final List<InventoryItem> searchResults = new ArrayList<>();
+    private final List<SaleService.SaleLine> saleCart = new ArrayList<>();
+    private final List<String> saleCartLabels = new ArrayList<>();
     private AppDatabase database;
     private AutoCompleteTextView itemSearch;
     private EditText quantityInput;
     private TextView cashCollections;
     private TextView todaySales;
+    private TextView saleCartSummary;
+    private EditText partnerPhoneField;
+    private EditText activeBarcodeField;
+    private String saleCartCurrency;
     private ArrayAdapter<String> itemAdapter;
     private InventoryItem selectedItem;
     private ActivityResultLauncher<Intent> importFileLauncher;
     private ActivityResultLauncher<Intent> exportFileLauncher;
     private ActivityResultLauncher<Intent> importRoomBackupLauncher;
+    private ActivityResultLauncher<Intent> barcodeScannerLauncher;
+    private ActivityResultLauncher<Intent> contactPickerLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
 
         itemSearch = findViewById(R.id.etItemSearch);
         quantityInput = findViewById(R.id.etQuantity);
+        saleCartSummary = findViewById(R.id.tvSaleCart);
         cashCollections = findViewById(R.id.tvCashBalance);
         todaySales = findViewById(R.id.tvTodaySales);
 
@@ -74,6 +90,39 @@ public class MainActivity extends AppCompatActivity {
                             && result.getData().getData() != null) {
                         importLegacyBackup(result.getData().getData());
                     }
+                });
+        barcodeScannerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(), result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        IntentResult scan = IntentIntegrator.parseActivityResult(
+                                result.getResultCode(), result.getData());
+                        String barcodeValue = scan == null ? null : scan.getContents();
+                        if (barcodeValue != null && !barcodeValue.trim().isEmpty()) {
+                            if (activeBarcodeField != null) {
+                                activeBarcodeField.setText(barcodeValue.trim());
+                            } else {
+                                itemSearch.setText(barcodeValue.trim());
+                                loadItemByBarcode(barcodeValue.trim());
+                            }
+                        }
+                    }
+                });
+        contactPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(), result -> {
+                    Uri contactUri = result.getData() == null ? null : result.getData().getData();
+                    if (result.getResultCode() == RESULT_OK && contactUri != null
+                            && partnerPhoneField != null) {
+                        try (Cursor cursor = getContentResolver().query(contactUri,
+                                new String[]{ContactsContract.CommonDataKinds.Phone.NUMBER},
+                                null, null, null)) {
+                            if (cursor != null && cursor.moveToFirst()) {
+                                partnerPhoneField.setText(cursor.getString(0));
+                            }
+                        } catch (RuntimeException exception) {
+                            showDatabaseError("تعذر قراءة رقم جهة الاتصال", exception);
+                        }
+                    }
+                    partnerPhoneField = null;
                 });
         exportFileLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -115,6 +164,7 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.btnExecuteSale).setOnClickListener(view -> submitCashSale());
         findViewById(R.id.btnCreditSale).setOnClickListener(view -> askCustomerForCreditSale());
+        findViewById(R.id.btnAddSaleLine).setOnClickListener(view -> addSelectedItemToSaleCart());
         findViewById(R.id.btnManageInventory).setOnClickListener(
                 view -> showInventoryManagement());
         findViewById(R.id.btnManagePartners).setOnClickListener(
@@ -162,53 +212,130 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void submitCashSale() {
-        postSale(false, null);
+        submitSale(0, null, true);
     }
 
     private void askCustomerForCreditSale() {
-        EditText customer = new EditText(this);
-        customer.setHint("اسم العميل");
+        LinearLayout form = createForm();
+        EditText customer = addField(form, "اسم العميل (مطلوب عند وجود متبقي)", "", false);
+        EditText paid = addField(form, "المبلغ المدفوع الآن (0 للبيع الآجل)", "0", true);
         new AlertDialog.Builder(this)
-                .setTitle("بيع آجل")
-                .setMessage("سيُسجل المبلغ ذمةً على العميل.")
-                .setView(customer)
+                .setTitle("بيع آجل أو جزئي")
+                .setMessage("سيسجل المتبقي ذمةً على العميل.")
+                .setView(form)
                 .setNegativeButton("إلغاء", null)
-                .setPositiveButton("اعتماد البيع", (dialog, which) ->
-                        postSale(true, customer.getText().toString()))
+                .setPositiveButton("اعتماد البيع", (dialog, which) -> {
+                    try {
+                        long amount = parseNonNegative(paid.getText().toString());
+                        submitSale(amount, customer.getText().toString(), false);
+                    } catch (IllegalArgumentException exception) {
+                        showMessage(exception.getMessage());
+                    }
+                })
                 .show();
     }
 
-    private void postSale(boolean onCredit, String customerName) {
-        InventoryItem item = selectedItem;
-        if (item == null) {
+    private List<SaleService.SaleLine> currentSaleLines() {
+        if (!saleCart.isEmpty()) {
+            return new ArrayList<>(saleCart);
+        }
+        if (selectedItem == null) {
+            showMessage("اختر صنفًا أو أضفه إلى الفاتورة أولًا");
+            return null;
+        }
+        try {
+            long quantity = parsePositive(quantityInput.getText().toString());
+            return java.util.Collections.singletonList(
+                    new SaleService.SaleLine(selectedItem.itemId, quantity));
+        } catch (IllegalArgumentException exception) {
+            showMessage(exception.getMessage());
+            return null;
+        }
+    }
+
+    private void addSelectedItemToSaleCart() {
+        if (selectedItem == null) {
             showMessage("اختر صنفًا من نتائج البحث أولًا");
             return;
         }
         long quantity;
         try {
-            quantity = Long.parseLong(quantityInput.getText().toString().trim());
-        } catch (NumberFormatException exception) {
-            showMessage("أدخل كمية صحيحة");
+            quantity = parsePositive(quantityInput.getText().toString());
+        } catch (IllegalArgumentException exception) {
+            showMessage(exception.getMessage());
             return;
         }
-        if (quantity <= 0) {
-            showMessage("الكمية يجب أن تكون أكبر من صفر");
+        if (saleCartCurrency != null
+                && !saleCartCurrency.equals(selectedItem.currencyCode)) {
+            showMessage("لا يمكن جمع عملتين مختلفتين في فاتورة واحدة");
             return;
         }
+        for (int i = 0; i < saleCart.size(); i++) {
+            SaleService.SaleLine line = saleCart.get(i);
+            if (line.itemId.equals(selectedItem.itemId)) {
+                saleCart.set(i, new SaleService.SaleLine(line.itemId,
+                        FinancialMath.add(line.quantity, quantity)));
+                saleCartLabels.set(i, selectedItem.itemName + " × "
+                        + (line.quantity + quantity));
+                refreshSaleCartSummary();
+                clearSaleLineInput();
+                return;
+            }
+        }
+        saleCart.add(new SaleService.SaleLine(selectedItem.itemId, quantity));
+        saleCartLabels.add(selectedItem.itemName + " × " + quantity);
+        saleCartCurrency = selectedItem.currencyCode;
+        refreshSaleCartSummary();
+        clearSaleLineInput();
+    }
 
-        String itemId = item.itemId;
-        String saleCurrency = item.currencyCode;
+    private void clearSaleLineInput() {
+        quantityInput.setText("");
+        itemSearch.setText("");
+    }
+
+    private void refreshSaleCartSummary() {
+        if (saleCartSummary == null) {
+            return;
+        }
+        if (saleCart.isEmpty()) {
+            saleCartSummary.setText("لم تُضف أصناف إلى الفاتورة");
+            return;
+        }
+        StringBuilder text = new StringBuilder("أصناف الفاتورة:\n");
+        for (String line : saleCartLabels) {
+            text.append("• ").append(line).append('\n');
+        }
+        saleCartSummary.setText(text.toString());
+    }
+
+    private void submitSale(long amountPaid, String customerName, boolean payFullAmount) {
+        List<SaleService.SaleLine> lines = currentSaleLines();
+        if (lines == null) {
+            return;
+        }
         Button cashButton = findViewById(R.id.btnExecuteSale);
         Button creditButton = findViewById(R.id.btnCreditSale);
+        Button addLineButton = findViewById(R.id.btnAddSaleLine);
         cashButton.setEnabled(false);
         creditButton.setEnabled(false);
+        addLineButton.setEnabled(false);
         databaseExecutor.execute(() -> {
             try {
-                String normalizedCustomer = customerName == null
-                        ? "" : customerName.trim().toLowerCase(Locale.ROOT);
-                String fingerprint = itemId + "|" + quantity + "|"
-                        + (onCredit ? "CREDIT" : "CASH") + "|" + normalizedCustomer
-                        + "|" + saleCurrency;
+                InventoryItem firstItem = database.inventoryDao().getItem(lines.get(0).itemId);
+                if (firstItem == null) {
+                    throw new IllegalArgumentException("الصنف غير موجود");
+                }
+                String saleCurrency = firstItem.currencyCode;
+                StringBuilder fingerprintBuilder = new StringBuilder(saleCurrency).append('|')
+                        .append(payFullAmount ? "FULL" : amountPaid).append('|')
+                        .append(customerName == null ? "" : customerName.trim()
+                                .toLowerCase(Locale.ROOT));
+                for (SaleService.SaleLine line : lines) {
+                    fingerprintBuilder.append('|').append(line.itemId)
+                            .append(':').append(line.quantity);
+                }
+                String fingerprint = fingerprintBuilder.toString();
                 SharedPreferences pendingSale = getSharedPreferences(
                         "pending_sale", MODE_PRIVATE);
                 String storedFingerprint = pendingSale.getString("fingerprint", null);
@@ -224,8 +351,11 @@ public class MainActivity extends AppCompatActivity {
                         throw new IllegalStateException("تعذر حفظ مفتاح إعادة المحاولة؛ لم يُرحّل البيع");
                     }
                 }
-                Invoice invoice = new SaleService(database).postSale(itemId, quantity,
-                        onCredit, customerName, saleCurrency, operationKey);
+                Invoice invoice = payFullAmount
+                        ? new SaleService(database).postSaleFullyPaid(
+                                lines, saleCurrency, operationKey)
+                        : new SaleService(database).postSale(
+                                lines, amountPaid, customerName, saleCurrency, operationKey);
                 boolean pendingCleared = pendingSale.edit().clear().commit();
                 String resultMessage = "تم حفظ الفاتورة " + invoice.invoiceId;
                 if (!pendingCleared) {
@@ -235,6 +365,10 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     if (!isFinishing()) {
                         showMessage(finalResultMessage);
+                        saleCart.clear();
+                        saleCartLabels.clear();
+                        saleCartCurrency = null;
+                        refreshSaleCartSummary();
                         quantityInput.setText("");
                         itemSearch.setText("");
                         refreshDashboard();
@@ -247,6 +381,7 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     cashButton.setEnabled(true);
                     creditButton.setEnabled(true);
+                    addLineButton.setEnabled(true);
                 });
             }
         });
@@ -360,6 +495,21 @@ public class MainActivity extends AppCompatActivity {
         EditText name = addField(form, "اسم الصنف", existing == null ? "" : existing.itemName, false);
         EditText barcode = addField(form, "الباركود (اختياري)", existing == null
                 ? "" : existing.barcode, false);
+        activeBarcodeField = barcode;
+        Button scanBarcode = new Button(this);
+        scanBarcode.setText("مسح الباركود بالكاميرا");
+        scanBarcode.setOnClickListener(view -> openBarcodeScanner());
+        form.addView(scanBarcode);
+        EditText quantity = addField(form, existing == null
+                ? "كمية الرصيد الافتتاحي (0 بلا رصيد)" : "الكمية الحالية",
+                existing == null ? "0" : Long.toString(existing.quantity), true);
+        EditText unitCost = addField(form, existing == null
+                ? "تكلفة الوحدة الافتتاحية (0 بلا رصيد)" : "متوسط تكلفة الوحدة",
+                existing == null ? "0" : Long.toString(existing.purchasePriceAverage), true);
+        if (existing != null) {
+            quantity.setEnabled(false);
+            unitCost.setEnabled(false);
+        }
         EditText sellingPrice = addField(form, "سعر البيع", existing == null
                 ? "" : Long.toString(existing.sellingPrice), true);
         Spinner currency = new Spinner(this);
@@ -378,19 +528,31 @@ public class MainActivity extends AppCompatActivity {
                 .setNegativeButton("إلغاء", null)
                 .setPositiveButton("حفظ", null)
                 .create();
+        dialog.setOnDismissListener(ignored -> activeBarcodeField = null);
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                 .setOnClickListener(view -> {
                     String itemName = name.getText().toString().trim();
                     String rawPrice = sellingPrice.getText().toString().trim();
                     long price;
+                    long initialQuantity;
+                    long initialCost;
                     try {
                         price = Long.parseLong(rawPrice);
+                        initialQuantity = parseNonNegative(quantity.getText().toString());
+                        initialCost = parseNonNegative(unitCost.getText().toString());
                     } catch (NumberFormatException exception) {
-                        showMessage("أدخل سعر بيع صحيحًا");
+                        showMessage("أدخل سعرًا وكمية وتكلفة صحيحة");
+                        return;
+                    } catch (IllegalArgumentException exception) {
+                        showMessage(exception.getMessage());
                         return;
                     }
                     if (itemName.isEmpty() || price <= 0) {
                         showMessage("اسم الصنف وسعر البيع الموجب مطلوبان");
+                        return;
+                    }
+                    if ((initialQuantity == 0) != (initialCost == 0)) {
+                        showMessage("أدخل كمية وتكلفة افتتاحيتين موجبتين معًا، أو اتركهما صفرًا");
                         return;
                     }
                     InventoryItem item = existing == null ? new InventoryItem() : existing;
@@ -413,16 +575,30 @@ public class MainActivity extends AppCompatActivity {
                             SessionManager.require(database,
                                     SessionManager.Permission.MANAGE_INVENTORY);
                             if (existing == null) {
-                                database.inventoryDao().insertItem(item);
+                                String fingerprint = item.itemName + "|" + item.barcode + "|"
+                                        + initialQuantity + "|" + initialCost + "|" + price
+                                        + "|" + item.currencyCode;
+                                String operationKey = pendingKey("inventory-item", fingerprint);
+                                new InventoryService(database).createItem(
+                                        item, initialQuantity, initialCost, operationKey);
+                                boolean keyCleared = clearPendingKey("inventory-item");
+                                runOnUiThread(() -> {
+                                    dialog.dismiss();
+                                    showMessage(keyCleared ? "تم حفظ الصنف ورصيده في Room"
+                                            : "تم الحفظ؛ احتُفظ بمفتاح منع التكرار لإعادة المحاولة");
+                                    refreshDashboard();
+                                    loadItemSuggestions("");
+                                });
                             } else if (database.inventoryDao().updateItem(item) != 1) {
                                 throw new IllegalStateException("لم يعد الصنف موجودًا");
+                            } else {
+                                runOnUiThread(() -> {
+                                    dialog.dismiss();
+                                    showMessage("تم حفظ بيانات الصنف في Room");
+                                    refreshDashboard();
+                                    loadItemSuggestions("");
+                                });
                             }
-                            runOnUiThread(() -> {
-                                dialog.dismiss();
-                                showMessage("تم حفظ الصنف في Room");
-                                refreshDashboard();
-                                loadItemSuggestions("");
-                            });
                         } catch (RuntimeException exception) {
                             showDatabaseError("تعذر حفظ الصنف", exception);
                         }
@@ -617,13 +793,27 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout form = createForm();
         EditText name = addField(form, "الاسم", existing == null ? "" : existing.name, false);
         EditText phone = addField(form, "الهاتف", existing == null ? "" : existing.phone, false);
+        partnerPhoneField = phone;
+        Button choosePhone = new Button(this);
+        choosePhone.setText("اختيار رقم من جهات الاتصال");
+        choosePhone.setOnClickListener(view -> chooseContactPhone(phone));
+        form.addView(choosePhone);
         EditText address = addField(form, "العنوان", existing == null ? "" : existing.address, false);
         AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(existing == null ? "إضافة شريك" : "تعديل شريك")
+                .setTitle(existing == null
+                        ? (BusinessPartner.TYPE_CUSTOMER.equals(type)
+                        ? "إضافة عميل" : "إضافة مورد")
+                        : (BusinessPartner.TYPE_CUSTOMER.equals(type)
+                        ? "تعديل بيانات العميل" : "تعديل بيانات المورد"))
                 .setView(form)
                 .setNegativeButton("إلغاء", null)
                 .setPositiveButton("حفظ", null)
                 .create();
+        dialog.setOnDismissListener(ignored -> {
+            if (partnerPhoneField == phone) {
+                partnerPhoneField = null;
+            }
+        });
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                 .setOnClickListener(view -> {
                     String partnerName = name.getText().toString().trim();
@@ -659,6 +849,51 @@ public class MainActivity extends AppCompatActivity {
                     });
                 }));
         dialog.show();
+    }
+
+    private void chooseContactPhone(EditText phoneField) {
+        partnerPhoneField = phoneField;
+        Intent pickPhone = new Intent(Intent.ACTION_PICK,
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
+        try {
+            contactPickerLauncher.launch(pickPhone);
+        } catch (RuntimeException exception) {
+            partnerPhoneField = null;
+            showDatabaseError("تعذر فتح دليل جهات الاتصال", exception);
+        }
+    }
+
+    private void openBarcodeScanner() {
+        IntentIntegrator scanner = new IntentIntegrator(this);
+        scanner.setDesiredBarcodeFormats(IntentIntegrator.ONE_D_CODE_TYPES);
+        scanner.setPrompt("وجّه الكاميرا نحو باركود الصنف");
+        scanner.setBeepEnabled(false);
+        scanner.setOrientationLocked(true);
+        try {
+            barcodeScannerLauncher.launch(scanner.createScanIntent());
+        } catch (RuntimeException exception) {
+            showDatabaseError("تعذر تشغيل ماسح الباركود", exception);
+        }
+    }
+
+    private void loadItemByBarcode(String barcodeValue) {
+        databaseExecutor.execute(() -> {
+            try {
+                InventoryItem item = database.inventoryDao().getItemByBarcode(barcodeValue);
+                runOnUiThread(() -> {
+                    if (item == null) {
+                        selectedItem = null;
+                        showMessage("لا يوجد صنف نشط بهذا الباركود");
+                    } else {
+                        itemSearch.setText(item.itemName);
+                        selectedItem = item;
+                        itemSearch.dismissDropDown();
+                    }
+                });
+            } catch (RuntimeException exception) {
+                showDatabaseError("تعذر البحث عن الباركود في Room", exception);
+            }
+        });
     }
 
     private void showSalesHistory() {
@@ -1142,6 +1377,51 @@ public class MainActivity extends AppCompatActivity {
         form.addView(field, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return field;
+    }
+
+    private String pendingKey(String operation, String fingerprint) {
+        SharedPreferences preferences = getSharedPreferences(
+                "pending_operation_" + operation, MODE_PRIVATE);
+        String oldFingerprint = preferences.getString("fingerprint", null);
+        String oldKey = preferences.getString("operation_key", null);
+        if (fingerprint.equals(oldFingerprint) && oldKey != null && !oldKey.isEmpty()) {
+            return oldKey;
+        }
+        String operationKey = UUID.randomUUID().toString();
+        if (!preferences.edit().putString("fingerprint", fingerprint)
+                .putString("operation_key", operationKey).commit()) {
+            throw new IllegalStateException("تعذر حفظ مفتاح إعادة المحاولة");
+        }
+        return operationKey;
+    }
+
+    private boolean clearPendingKey(String operation) {
+        return getSharedPreferences("pending_operation_" + operation, MODE_PRIVATE)
+                .edit().clear().commit();
+    }
+
+    private long parsePositive(String raw) {
+        try {
+            long value = Long.parseLong(raw.trim());
+            if (value <= 0) {
+                throw new NumberFormatException();
+            }
+            return value;
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("أدخل عددًا صحيحًا أكبر من صفر");
+        }
+    }
+
+    private long parseNonNegative(String raw) {
+        try {
+            long value = Long.parseLong(raw.trim());
+            if (value < 0) {
+                throw new NumberFormatException();
+            }
+            return value;
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("أدخل عددًا صحيحًا غير سالب");
+        }
     }
 
     private void showDatabaseError(String action, Exception exception) {

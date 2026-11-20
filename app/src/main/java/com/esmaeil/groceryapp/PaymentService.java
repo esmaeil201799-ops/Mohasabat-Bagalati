@@ -43,8 +43,10 @@ public final class PaymentService {
             Invoice invoice = database.erpDao().getInvoice(invoiceId);
             if (invoice == null || !"POSTED".equals(invoice.status)
                     || !(receipt ? ("SALE_CASH".equals(invoice.type)
-                    || "SALE_CREDIT".equals(invoice.type))
-                    : "PURCHASE".equals(invoice.type))) {
+                    || "SALE_CREDIT".equals(invoice.type)
+                    || OpeningBalanceService.CUSTOMER_RECEIVABLE.equals(invoice.type))
+                    : ("PURCHASE".equals(invoice.type)
+                    || OpeningBalanceService.SUPPLIER_PAYABLE.equals(invoice.type)))) {
                 throw new IllegalArgumentException("نوع الفاتورة غير مناسب للسند");
             }
             if (invoice.total < 0 || invoice.paid < 0 || invoice.returnedAmount < 0

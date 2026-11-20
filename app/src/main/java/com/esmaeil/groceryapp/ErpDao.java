@@ -135,6 +135,10 @@ public interface ErpDao {
             + "ORDER BY issuedAt DESC LIMIT 100")
     List<Invoice> getRecentInvoicesByTypes(List<String> types);
 
+    @Query("SELECT * FROM invoices WHERE status = 'POSTED' AND type IN (:types) "
+            + "AND total > paid + returnedAmount ORDER BY issuedAt DESC")
+    List<Invoice> getOutstandingInvoicesByTypes(List<String> types);
+
     @Query("SELECT i.* FROM invoices i LEFT JOIN business_partners p "
             + "ON p.partnerId = i.partnerId WHERE i.status = 'POSTED' AND "
             + "(i.type IN ('SALE_CASH', 'SALE_CREDIT') OR i.type = 'SALE_RETURN') "

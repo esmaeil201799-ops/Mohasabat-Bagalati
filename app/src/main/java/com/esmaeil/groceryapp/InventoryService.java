@@ -10,6 +10,49 @@ public final class InventoryService {
         this.database = database;
     }
 
+    public void createItem(InventoryItem item, long openingQuantity, long unitCost,
+                           String idempotencyKey) {
+        AppUser actor = SessionManager.require(
+                database, SessionManager.Permission.MANAGE_INVENTORY);
+        if (item == null || item.itemId == null || item.itemId.trim().isEmpty()
+                || item.itemName == null || item.itemName.trim().isEmpty()
+                || item.sellingPrice <= 0 || openingQuantity < 0 || unitCost < 0
+                || (openingQuantity == 0) != (unitCost == 0)
+                || idempotencyKey == null || idempotencyKey.trim().isEmpty()) {
+            throw new IllegalArgumentException("بيانات الصنف والكمية والتكلفة غير صالحة");
+        }
+        MoneyCurrency.requireSupported(item.currencyCode);
+        database.runInTransaction(() -> {
+            String settingKey = "inventory_item_create:" + idempotencyKey;
+            String fingerprint = item.itemName + "|" + item.barcode + "|"
+                    + openingQuantity + "|" + unitCost + "|" + item.sellingPrice
+                    + "|" + item.currencyCode;
+            String previousFingerprint = database.erpDao().getSetting(settingKey);
+            if (previousFingerprint != null) {
+                if (!previousFingerprint.equals(fingerprint)) {
+                    throw new IllegalStateException(
+                            "مفتاح العملية مستخدم لإنشاء صنف ببيانات مختلفة");
+                }
+                return;
+            }
+            item.quantity = 0;
+            item.purchasePriceAverage = 0;
+            item.isActive = true;
+            database.inventoryDao().insertItem(item);
+            long timestamp = System.currentTimeMillis();
+            if (openingQuantity > 0) {
+                postOpeningStockInTransaction(item.itemId, openingQuantity, unitCost,
+                        idempotencyKey, actor);
+            }
+            AppSetting setting = new AppSetting();
+            setting.settingKey = settingKey;
+            setting.settingValue = fingerprint;
+            database.erpDao().insertAppSetting(setting);
+            AccountingAccounts.audit(database, actor.userId, "CREATE", "INVENTORY_ITEM",
+                    item.itemId, "إضافة صنف " + item.itemName, timestamp);
+        });
+    }
+
     public void postOpeningStock(String itemId, long quantity, long unitCost,
                                  String idempotencyKey) {
         AppUser actor = SessionManager.require(
@@ -19,72 +62,71 @@ public final class InventoryService {
             throw new IllegalArgumentException("الصنف والكمية والتكلفة ومفتاح العملية مطلوبة");
         }
 
-        database.runInTransaction(() -> {
-            StockMovement previous = database.inventoryDao().getMovementByReference(
-                    idempotencyKey, "OPENING_STOCK");
-            if (previous != null) {
-                if (!itemId.equals(previous.itemId) || previous.quantityChange != quantity
-                        || previous.costAtTheTime != unitCost) {
-                    throw new IllegalStateException("مفتاح العملية مستخدم لإدخال مخزون مختلف");
-                }
-                return;
+        database.runInTransaction(() ->
+                postOpeningStockInTransaction(itemId, quantity, unitCost, idempotencyKey, actor));
+    }
+
+    private void postOpeningStockInTransaction(String itemId, long quantity, long unitCost,
+                                              String idempotencyKey, AppUser actor) {
+        StockMovement previous = database.inventoryDao().getMovementByReference(
+                idempotencyKey, "OPENING_STOCK");
+        if (previous != null) {
+            if (!itemId.equals(previous.itemId) || previous.quantityChange != quantity
+                    || previous.costAtTheTime != unitCost) {
+                throw new IllegalStateException("مفتاح العملية مستخدم لإدخال مخزون مختلف");
             }
+            return;
+        }
 
-            InventoryItem item = database.inventoryDao().getItem(itemId);
-            if (item == null || !item.isActive) {
-                throw new IllegalArgumentException("الصنف غير موجود أو غير نشط");
-            }
-            long newQuantity = FinancialMath.add(item.quantity, quantity);
-            long newAverage = InventoryEngine.calculateNewWeightedAverage(item.quantity,
-                    item.purchasePriceAverage, quantity, unitCost, 0);
-            long value = FinancialMath.multiply(quantity, unitCost);
-            String currencyCode = MoneyCurrency.requireSupported(item.currencyCode);
+        InventoryItem item = database.inventoryDao().getItem(itemId);
+        if (item == null || !item.isActive) {
+            throw new IllegalArgumentException("الصنف غير موجود أو غير نشط");
+        }
+        long newQuantity = FinancialMath.add(item.quantity, quantity);
+        long newAverage = InventoryEngine.calculateNewWeightedAverage(item.quantity,
+                item.purchasePriceAverage, quantity, unitCost, 0);
+        long value = FinancialMath.multiply(quantity, unitCost);
+        String currencyCode = MoneyCurrency.requireSupported(item.currencyCode);
 
-            String inventoryAccount = MoneyCurrency.accountId("system-inventory", currencyCode);
-            String equityAccount = MoneyCurrency.accountId("system-opening-equity", currencyCode);
-            ensureAccount(inventoryAccount, "المخزون", "ASSET", currencyCode);
-            ensureAccount(equityAccount, "رصيد المخزون الافتتاحي", "EQUITY", currencyCode);
+        String inventoryAccount = MoneyCurrency.accountId("system-inventory", currencyCode);
+        String equityAccount = MoneyCurrency.accountId("system-opening-equity", currencyCode);
+        ensureAccount(inventoryAccount, "المخزون", "ASSET", currencyCode);
+        ensureAccount(equityAccount, "رصيد المخزون الافتتاحي", "EQUITY", currencyCode);
 
-            JournalEntry entry = new JournalEntry();
-            entry.entryId = UUID.randomUUID().toString();
-            entry.date = AppDateTime.formatUtc(System.currentTimeMillis());
-            entry.description = "إثبات رصيد مخزون افتتاحي للصنف " + item.itemName;
-            entry.referenceType = "OPENING_STOCK";
-            entry.referenceId = idempotencyKey;
-            entry.totalDebit = value;
-            entry.totalCredit = value;
-            entry.isPosted = false;
-            database.accountDao().insertJournalEntry(entry);
+        JournalEntry entry = new JournalEntry();
+        entry.entryId = UUID.randomUUID().toString();
+        entry.date = AppDateTime.formatUtc(System.currentTimeMillis());
+        entry.description = "إثبات رصيد مخزون افتتاحي للصنف " + item.itemName;
+        entry.referenceType = "OPENING_STOCK";
+        entry.referenceId = idempotencyKey;
+        entry.totalDebit = value;
+        entry.totalCredit = value;
+        entry.isPosted = false;
+        database.accountDao().insertJournalEntry(entry);
 
-            JournalLine debit = journalLine(entry.entryId, inventoryAccount, value, 0);
-            JournalLine credit = journalLine(entry.entryId, equityAccount, 0, value);
-            AccountingEngine.postLines(database, entry, Arrays.asList(debit, credit));
+        JournalLine debit = journalLine(entry.entryId, inventoryAccount, value, 0);
+        JournalLine credit = journalLine(entry.entryId, equityAccount, 0, value);
+        AccountingEngine.postLines(database, entry, Arrays.asList(debit, credit));
 
-            if (database.inventoryDao().updateStockAndAverageCost(
-                    itemId, newQuantity, newAverage) != 1) {
-                throw new IllegalStateException("تعذر تحديث المخزون؛ لم يتم اعتماد العملية");
-            }
-            StockMovement movement = new StockMovement();
-            movement.movementId = UUID.randomUUID().toString();
-            movement.itemId = itemId;
-            movement.referenceId = idempotencyKey;
-            movement.movementType = "OPENING_STOCK";
-            movement.quantityChange = quantity;
-            movement.costAtTheTime = unitCost;
-            movement.currencyCode = currencyCode;
-            movement.date = entry.date;
-            database.inventoryDao().insertMovement(movement);
+        if (database.inventoryDao().updateStockAndAverageCost(
+                itemId, newQuantity, newAverage) != 1) {
+            throw new IllegalStateException("تعذر تحديث المخزون؛ لم يتم اعتماد العملية");
+        }
+        StockMovement movement = new StockMovement();
+        movement.movementId = UUID.randomUUID().toString();
+        movement.itemId = itemId;
+        movement.referenceId = idempotencyKey;
+        movement.movementType = "OPENING_STOCK";
+        movement.quantityChange = quantity;
+        movement.costAtTheTime = unitCost;
+        movement.currencyCode = currencyCode;
+        movement.date = entry.date;
+        database.inventoryDao().insertMovement(movement);
 
-            AuditEvent audit = new AuditEvent();
-            audit.eventId = UUID.randomUUID().toString();
-            audit.userId = actor.userId;
-            audit.action = "POST";
-            audit.entityType = "STOCK_MOVEMENT";
-            audit.entityId = movement.movementId;
-            audit.details = "إثبات رصيد افتتاحي، الكمية " + quantity + "، التكلفة " + unitCost;
-            audit.createdAt = System.currentTimeMillis();
-            database.erpDao().insertAuditEvent(audit);
-        });
+        AccountingAccounts.audit(database, actor.userId, "POST", "STOCK_MOVEMENT",
+                movement.movementId,
+                "إثبات رصيد افتتاحي، الكمية " + quantity + "، التكلفة " + unitCost,
+                System.currentTimeMillis());
     }
 
     private void ensureAccount(String id, String name, String type, String currencyCode) {
