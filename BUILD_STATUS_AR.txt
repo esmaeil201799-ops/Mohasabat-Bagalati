@@ -17,7 +17,11 @@
   be82e8e68b2fd4b3c3239ef2b1dd25fd76df579f9446b05b037717bdf46e2423
 - تم بناء حزمة Android الاختبارية (assembleDebugAndroidTest)، لكن لم تُشغّل
   اختبارات Instrumentation على جهاز/محاكي.
-- GitHub Actions لهذا التغيير: لم يبدأ بعد؛ ينتظر رفع الـcommit الحالي.
+- GitHub Actions للـcommit e68dfae: نجاح، وتضمن بناء APK والتحقق من وجوده
+  ورفعه، ثم فحص المصدر وتشغيل Gradle check. سجل التشغيل:
+  https://github.com/esmaeil201799-ops/Mohasabat-Bagalati/actions/runs/44682298104
+- نتائج CI الفعلية: 25 اختبار JVM، 0 فشل، 0 أخطاء، 0 تخطي؛ منها 19 اختبار
+  RoomPersistenceTest، ونجح Gradle check.
 
 2) الإصلاحات والوظائف المنفذة
 - إضافة صنف مع الباركود والعملة وسعر البيع، وكمية/تكلفة افتتاحية اختيارية؛
@@ -72,7 +76,13 @@
 - لم تُرسل بيانات إلى خدمات خارجية، ولم تُفعّل مزامنة سحابية.
 
 5) حالة التسليم
-- APK Debug محلي بُني واكتمل التحقق من توقيعه، ولم يُختبر تثبيته أو تشغيله
-  على جهاز فعلي.
-- Artifact ورابط GitHub Actions سيضافان بعد اكتمال تشغيل CI للرفع الحالي.
+- APK Debug المحلي: بُني واكتمل التحقق من توقيعه؛ 7,119,528 بايت،
+  SHA-256:
+  be82e8e68b2fd4b3c3239ef2b1dd25fd76df579f9446b05b037717bdf46e2423
+- Artifact الذي أنتجه CI ورُفع بنجاح: Mohasabat-Bagalati-debug-apk /
+  app-debug.apk، حجمه 7,119,523 بايت، SHA-256:
+  f2cb51b6876131bed7697116232a54062aefad959269d4183fe42bcd94db31d4
+  رابط تنزيله من صفحة التشغيل:
+  https://github.com/esmaeil201799-ops/Mohasabat-Bagalati/actions/runs/44682298104
+- لم يُختبر تثبيت APK أو تشغيله على جهاز فعلي.
 - لم يُدمج أي تغيير في main، ولم تُحذف قاعدة بيانات أو بيانات أو ملفات أساسية.
